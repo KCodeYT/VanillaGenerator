@@ -128,15 +128,19 @@ public class VanillaGeneratorPlugin extends PluginBase implements Listener {
         this.setEnabled(true);
 
         final Server server = this.getServer();
-        if(!server.isLevelGenerated("nether"))
-            server.generateLevel("nether", System.currentTimeMillis(), VanillaNether.class, new HashMap<>(), Anvil.class);
-        else
-            server.loadLevel("nether");
+        if(server.isNetherAllowed()) {
+            if(!server.isLevelGenerated("nether"))
+                server.generateLevel("nether", System.currentTimeMillis(), VanillaNether.class, new HashMap<>(), Anvil.class);
+            else
+                server.loadLevel("nether");
+        }
 
-        if(!server.isLevelGenerated("the_end"))
-            server.generateLevel("the_end", System.currentTimeMillis(), VanillaTheEnd.class, new HashMap<>(), Anvil.class);
-        else
-            server.loadLevel("the_end");
+        if(server.isTheEndAllowed()) {
+            if(!server.isLevelGenerated("the_end"))
+                server.generateLevel("the_end", System.currentTimeMillis(), VanillaTheEnd.class, new HashMap<>(), Anvil.class);
+            else
+                server.loadLevel("the_end");
+        }
     }
 
     @Override
