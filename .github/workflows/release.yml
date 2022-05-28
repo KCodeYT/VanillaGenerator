@@ -1,0 +1,72 @@
+name: Release this plugin
+
+on:
+  push:
+    branches: [ release ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout github repository
+        uses: actions/checkout@v3
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Clone PowerNukkitX
+        uses: sudosubin/git-clone-action@v1.0.1
+        with:
+          repository: PowerNukkitX/PowerNukkitX
+          ref: master
+          path: PowerNukkitX
+
+      - name: Build PowerNukkitX
+        run: cd PowerNukkitX && mvn install
+
+      - name: Upload PowerNukkitX as artifact
+        uses: actions/upload-artifact@v3.0.0
+        with:
+          name: PowerNukkitX
+          path: PowerNukkitX/target/powernukkitx-1.6.0.0-PNX-SNAPSHOT-shaded.jar
+
+      - name: Get name and version from pom.xml
+        run: |
+          VER=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+          echo "VER=$VER" >> $GITHUB_ENV
+          NAME=$(mvn help:evaluate -Dexpression=project.artifactId -q -DforceStdout)
+          echo "NAME=$NAME" >> $GITHUB_ENV
+
+      - name: Build plugin
+        run: mvn package
+
+      - name: Delete old release
+        uses: dev-drprasad/delete-tag-and-release@v0.2.0
+        with:
+          delete_release: true
+          tag_name: ${{env.VER}}
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          tag_name: ${{env.VER}}
+          release_name: VanillaGenerator v${{env.VER}}
+
+      - name: Upload plugin as release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        with:
+          upload_url: ${{steps.create_release.outputs.upload_url}}
+          asset_path: target/${{env.NAME}}-${{env.VER}}.jar
+          asset_name: VanillaGenerator.jar
+          asset_content_type: application/java-archive
