@@ -125,8 +125,6 @@ public class VanillaGeneratorPlugin extends PluginBase implements Listener {
         Generator.addGenerator(VanillaNether.class, "vanilla_nether", VanillaNether.TYPE);
         Generator.addGenerator(VanillaTheEnd.class, "vanilla_the_end", VanillaTheEnd.TYPE);
 
-        this.setEnabled(true);
-
         final Server server = this.getServer();
         if(server.isNetherAllowed()) {
             if(!server.isLevelGenerated("nether"))
