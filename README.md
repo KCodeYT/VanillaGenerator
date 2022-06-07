@@ -3,6 +3,8 @@
 What is this?
 ------------------------------
 
+This project is currently only a proof-of-concept work to present that a vanilla generator based on a background server
+would theoretically and practically work.
 This project adds a vanilla generator to the [powernukkitx](https://github.com/PowerNukkitX/PowerNukkitX/) server
 software.
 
@@ -26,7 +28,6 @@ How can I access the generator?
     3. Start your server.
     4. Depending on if you have allow-nether and allow-the_end in your server.properties
        set to true, those worlds will be generated with the vanilla generator at startup.
-
 
 How does this plugin work?
 ------------------------------

@@ -1,5 +1,6 @@
 main: de.kcodeyt.vanilla.VanillaGeneratorPlugin
 name: VanillaGeneratorPlugin
-version: "0.0.2-SNAPSHOT"
+version: "0.0.3-SNAPSHOT"
 authors: ["KCodeYT"]
 api: ["1.0.0"]
+load: STARTUP
