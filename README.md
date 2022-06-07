@@ -32,8 +32,8 @@ How can I access the generator?
 How does this plugin work?
 ------------------------------
 
-This plugin works by adding 3 new generators to the server. (vanilla, vanilla_nether, vanilla_the_end)
-Those generators start a bedrock dedicated in background server where bots generate chunks continuously and clone them
-to the powernukkitx server when they are needed.
+This plugin works by adding 3 new generators to the server (vanilla, vanilla_nether, vanilla_the_end).
+Those generators start a bedrock dedicated server in the background. After they started bots join those servers and
+generate chunks continuously and clone them to the powernukkitx server when they are needed.
 As its well known that a bedrock dedicated server uses a lot of resources, with this plugin your server needs those
 resources too.
