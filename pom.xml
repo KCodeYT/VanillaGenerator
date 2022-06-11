@@ -6,7 +6,7 @@
 
     <groupId>de.kcodeyt</groupId>
     <artifactId>VanillaGenerator</artifactId>
-    <version>0.0.3-SNAPSHOT</version>
+    <version>0.0.4-SNAPSHOT</version>
 
     <repositories>
         <repository>
@@ -53,8 +53,8 @@
         </dependency>
         <dependency>
             <groupId>com.nukkitx.protocol</groupId>
-            <artifactId>bedrock-v503</artifactId>
-            <version>2.9.6-SNAPSHOT</version>
+            <artifactId>bedrock-v527</artifactId>
+            <version>2.9.8-SNAPSHOT</version>
             <scope>compile</scope>
         </dependency>
     </dependencies>

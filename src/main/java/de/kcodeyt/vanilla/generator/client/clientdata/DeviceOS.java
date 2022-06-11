@@ -32,10 +32,12 @@ public enum DeviceOS {
     HOLO_LENS,
     WINDOWS_10,
     WINDOWS,
-    EDUCATION,
     DEDICATED,
+    TV_OS,
     PLAY_STATION_4,
     SWITCH,
-    XBOX_ONE
+    XBOX_ONE,
+    WINDOWS_PHONE,
+    LINUX
 
 }

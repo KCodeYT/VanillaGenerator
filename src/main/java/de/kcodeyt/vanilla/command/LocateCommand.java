@@ -78,6 +78,7 @@ public class LocateCommand extends Command {
     @SuppressWarnings("SpellCheckingInspection")
     private enum StructureFeatureType {
 
+        ANCIENTCITY,
         BASTIONREMNANT,
         BURIEDTREASURE,
         ENDCITY,

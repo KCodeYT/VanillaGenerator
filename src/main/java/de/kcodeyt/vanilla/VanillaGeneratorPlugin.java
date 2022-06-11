@@ -26,8 +26,6 @@ import cn.nukkit.level.format.anvil.Anvil;
 import cn.nukkit.level.generator.Generator;
 import cn.nukkit.plugin.PluginBase;
 import com.google.common.util.concurrent.MoreExecutors;
-import com.nukkitx.protocol.bedrock.wrapper.BedrockWrapperSerializer;
-import com.nukkitx.protocol.bedrock.wrapper.BedrockWrapperSerializers;
 import de.kcodeyt.vanilla.command.LocateCommand;
 import de.kcodeyt.vanilla.command.SudoCommand;
 import de.kcodeyt.vanilla.command.WorldCommand;
@@ -37,17 +35,14 @@ import de.kcodeyt.vanilla.generator.VanillaTheEnd;
 import de.kcodeyt.vanilla.generator.client.clientdata.Skin;
 import de.kcodeyt.vanilla.generator.network.EncryptionKeyFactory;
 import de.kcodeyt.vanilla.generator.server.VanillaServer;
-import de.kcodeyt.vanilla.util.BedrockWrapperSerializerV10;
 import de.kcodeyt.vanilla.world.World;
 import lombok.Getter;
 
 import javax.imageio.ImageIO;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
@@ -114,7 +109,6 @@ public class VanillaGeneratorPlugin extends PluginBase implements Listener {
 
     @Override
     public void onLoad() {
-        replaceSerializer();
         instance = this;
 
         this.executorService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(4));
@@ -170,20 +164,6 @@ public class VanillaGeneratorPlugin extends PluginBase implements Listener {
     @Override
     public void onDisable() {
         VANILLA_SERVERS.forEach(VanillaServer::close);
-    }
-
-    private static void replaceSerializer() {
-        try {
-            final Class<BedrockWrapperSerializers> serializersClass = BedrockWrapperSerializers.class;
-            final Field serializers = serializersClass.getDeclaredField("SERIALIZERS");
-            serializers.setAccessible(true);
-            final Map<?, ?> serializersMap_ = (Map<?, ?>) serializers.get(null);
-            //noinspection unchecked
-            final Map<Integer, BedrockWrapperSerializer> serializerMap = (Map<Integer, BedrockWrapperSerializer>) serializersMap_;
-            serializerMap.put(10, BedrockWrapperSerializerV10.DEFAULT);
-        } catch(IllegalAccessException | NoSuchFieldException e) {
-            e.printStackTrace();
-        }
     }
 
 }
