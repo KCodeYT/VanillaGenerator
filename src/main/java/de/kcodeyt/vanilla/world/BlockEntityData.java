@@ -52,7 +52,6 @@ public class BlockEntityData {
     }
 
     public static void direct(VanillaServer vanillaServer, FullChunk fullChunk, CompoundTag baseTag) {
-        System.out.println(baseTag);
         CREATOR_MAP.getOrDefault(baseTag.getString("id"), BASIC_CREATOR).createBlockEntity(vanillaServer, fullChunk, baseTag);
     }
 
