@@ -38,9 +38,9 @@ public class ItemIdentifier {
 
     public static int getItemId(String itemName) {
         final String name = itemName.contains(":") ? itemName : "minecraft:" + itemName;
-        if(name.equalsIgnoreCase("fire_charge"))
-            return 385;
-        return RUNTIME_ITEM_MAP.getOrDefault(name, Item.AIR);
+        final int itemId = Item.fromString(name).getId();
+        if(itemId == Item.AIR) return RUNTIME_ITEM_MAP.getOrDefault(name, Item.AIR);
+        return itemId;
     }
 
 }
