@@ -120,6 +120,12 @@ public class VanillaGeneratorPlugin extends PluginBase implements Listener {
         Generator.addGenerator(VanillaTheEnd.class, "vanilla_the_end", VanillaTheEnd.TYPE);
 
         final Server server = this.getServer();
+
+        if(!server.isLevelGenerated("world"))
+            server.generateLevel("world", System.currentTimeMillis(), VanillaOverworld.class, new HashMap<>(), Anvil.class);
+        else
+            server.loadLevel("world");
+
         if(server.isNetherAllowed()) {
             if(!server.isLevelGenerated("nether"))
                 server.generateLevel("nether", System.currentTimeMillis(), VanillaNether.class, new HashMap<>(), Anvil.class);
