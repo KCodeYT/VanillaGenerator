@@ -47,34 +47,26 @@ public class NbtConverter {
 
     private static Tag convertTag(String name, Object value) {
         final Class<?> clazz = value.getClass();
-        switch(NbtType.byClass(clazz).getEnum()) {
-            case BYTE:
-                return new ByteTag(name, (byte) value);
-            case SHORT:
-                return new ShortTag(name, (short) value);
-            case INT:
-                return new IntTag(name, (int) value);
-            case LONG:
-                return new LongTag(name, (long) value);
-            case FLOAT:
-                return new FloatTag(name, (float) value);
-            case DOUBLE:
-                return new DoubleTag(name, (double) value);
-            case BYTE_ARRAY:
-                return new ByteArrayTag(name, (byte[]) value);
-            case STRING:
-                return new StringTag(name, (String) value);
-            case LIST:
-                final ListTag<Tag> listTag = new ListTag<>(name);
-                listTag.setAll(((NbtList<?>) value).stream().map(o -> convertTag("", o)).filter(Objects::nonNull).collect(Collectors.toList()));
-                return listTag;
-            case COMPOUND:
-                return convert(name, (NbtMap) value);
-            case INT_ARRAY:
-                return new IntArrayTag(name, (int[]) value);
-            default:
-                return null;
-        }
+        return switch(NbtType.byClass(clazz).getEnum()) {
+            case BYTE -> new ByteTag(name, (byte) value);
+            case SHORT -> new ShortTag(name, (short) value);
+            case INT -> new IntTag(name, (int) value);
+            case LONG -> new LongTag(name, (long) value);
+            case FLOAT -> new FloatTag(name, (float) value);
+            case DOUBLE -> new DoubleTag(name, (double) value);
+            case BYTE_ARRAY -> new ByteArrayTag(name, (byte[]) value);
+            case STRING -> new StringTag(name, (String) value);
+            case LIST -> convertList(name, (NbtList<?>) value);
+            case COMPOUND -> convert(name, (NbtMap) value);
+            case INT_ARRAY -> new IntArrayTag(name, (int[]) value);
+            default -> null;
+        };
+    }
+
+    private static ListTag<Tag> convertList(String name, NbtList<?> list) {
+        final ListTag<Tag> listTag = new ListTag<>(name);
+        listTag.setAll(list.stream().map(o -> convertTag("", o)).filter(Objects::nonNull).collect(Collectors.toList()));
+        return listTag;
     }
 
 }
