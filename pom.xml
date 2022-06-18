@@ -20,6 +20,7 @@
             <groupId>cn.powernukkitx</groupId>
             <artifactId>powernukkitx</artifactId>
             <version>1.6.0.0-PNX-SNAPSHOT</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>
@@ -50,6 +51,7 @@
             <groupId>it.unimi.dsi</groupId>
             <artifactId>fastutil</artifactId>
             <version>8.5.8</version>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.nukkitx.protocol</groupId>
@@ -80,14 +82,6 @@
                         <goals>
                             <goal>shade</goal>
                         </goals>
-                        <configuration>
-                            <artifactSet>
-                                <excludes>
-                                    <exclude>org.powernukkit:powernukkit</exclude>
-                                    <exclude>it.unimi.dsi:fastutil</exclude>
-                                </excludes>
-                            </artifactSet>
-                        </configuration>
                     </execution>
                 </executions>
             </plugin>
