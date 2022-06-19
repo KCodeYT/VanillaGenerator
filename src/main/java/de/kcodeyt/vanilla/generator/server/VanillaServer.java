@@ -94,10 +94,10 @@ public class VanillaServer {
     }
 
     private void connect() {
-        for(int i = 0; i < 2; i++)
+        for(int i = 0; i < VanillaGeneratorPlugin.getInstance().getFakePlayersPerGenerator(); i++)
             this.world.getPlugin()
                     .getExecutorService()
-                    .schedule(this::connectClient, (i + 1) * 2000, TimeUnit.MILLISECONDS);
+                    .schedule(this::connectClient, (i + 1) * 2000L, TimeUnit.MILLISECONDS);
     }
 
     public Client getClient() {

@@ -83,6 +83,8 @@ public class VanillaGeneratorPlugin extends PluginBase implements Listener {
 
     @Getter
     private boolean debugTip = true;
+    @Getter
+    private int fakePlayersPerGenerator = 2;
 
     public static synchronized CompletableFuture<VanillaServer> getVanillaServer(Level level) {
         return VANILLA_SERVERS.stream().filter(vanillaServer -> vanillaServer.isLevel(level)).findAny().
@@ -143,6 +145,19 @@ public class VanillaGeneratorPlugin extends PluginBase implements Listener {
         }
 
         this.debugTip = config.getBoolean("debug-tip");
+
+        if(!config.exists("fake-players")) {
+            config.set("fake-players", 2);
+            config.save();
+        }
+
+        final int fakePlayers = config.getInt("fake-players");
+        if(fakePlayers != Math.max(1, Math.min(5, fakePlayers))) {
+            config.set("fake-players", Math.max(1, Math.min(5, fakePlayers)));
+            config.save();
+        }
+
+        this.fakePlayersPerGenerator = config.getInt("fake-players");
     }
 
     @EventHandler

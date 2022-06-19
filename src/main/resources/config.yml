@@ -1,2 +1,6 @@
 #Whether we should send a debug tip which shows the current tps and the current chunk the player is in
 debug-tip: true
+
+#Fake players per background server, this can increase the load of the server but makes chunk generation faster.
+#This number has to be between 1 and 5
+fake-players: 2
