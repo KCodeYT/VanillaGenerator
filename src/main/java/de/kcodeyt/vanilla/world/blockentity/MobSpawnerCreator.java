@@ -43,7 +43,7 @@ public class MobSpawnerCreator implements BlockEntityCreator {
 
         baseTag.putInt("EntityId", entityNumericId);
         baseTag.putShort("MinimumSpawnerCount", 1);
-        baseTag.putShort("MaximumSpawnerCount", baseTag.getShort("SpawnCount"));
+        baseTag.put("MaximumSpawnerCount", baseTag.removeAndGet("SpawnCount"));
 
         BlockEntity.createBlockEntity(BlockEntity.MOB_SPAWNER, fullChunk, baseTag);
     }
