@@ -24,10 +24,27 @@ How can I access the generator?
     0. ⚠️ DO NOT RUN THIS PLUGIN ON A PRODUCTION SERVER ⚠️
              (its not stable and uses much resources)
     1. Add this plugin to your server.
-    2. Set the level-type to "vanilla" in your server.properties.
-    3. Start your server.
-    4. Depending on if you have allow-nether and allow-the_end in your server.properties
-       set to true, those worlds will be generated with the vanilla generator at startup.
+    2. Open the nukkit.yml file of your server.
+       You need to add a new world to the worlds config in the nukkit.yml file.
+       This world needs the generator "vanilla" for the overworld.
+       If you want the world to be nether, then the generator needs to be "vanilla_nether".
+       If you want the world to be the end, then the generator needs to be "vanilla_the_end".
+    3. Save the file and start your server.
+
+Example nukkit.yml world config (with all 3 world types):
+
+```xml
+worlds:
+  world:
+    seed: 0123456789
+    generator: vanilla
+  nether:
+    seed: 0123456789
+    generator: vanilla_nether
+  the_end:
+    seed: 0123456789
+    generator: vanilla_the_end
+```
 
 How does this plugin work?
 ------------------------------

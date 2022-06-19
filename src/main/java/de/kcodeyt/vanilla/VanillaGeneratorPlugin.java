@@ -22,7 +22,6 @@ import cn.nukkit.event.EventHandler;
 import cn.nukkit.event.Listener;
 import cn.nukkit.event.player.PlayerJoinEvent;
 import cn.nukkit.level.Level;
-import cn.nukkit.level.format.anvil.Anvil;
 import cn.nukkit.level.generator.Generator;
 import cn.nukkit.plugin.PluginBase;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -41,7 +40,6 @@ import lombok.Getter;
 import javax.imageio.ImageIO;
 import java.io.IOException;
 import java.net.URL;
-import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -112,33 +110,11 @@ public class VanillaGeneratorPlugin extends PluginBase implements Listener {
         instance = this;
 
         this.executorService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(4));
-
         this.encryptionKeyFactory = new EncryptionKeyFactory();
 
         Generator.addGenerator(VanillaOverworld.class, "vanilla", VanillaOverworld.TYPE);
         Generator.addGenerator(VanillaNether.class, "vanilla_nether", VanillaNether.TYPE);
         Generator.addGenerator(VanillaTheEnd.class, "vanilla_the_end", VanillaTheEnd.TYPE);
-
-        final Server server = this.getServer();
-
-        if(!server.isLevelGenerated("world"))
-            server.generateLevel("world", System.currentTimeMillis(), VanillaOverworld.class, new HashMap<>(), Anvil.class);
-        else
-            server.loadLevel("world");
-
-        if(server.isNetherAllowed()) {
-            if(!server.isLevelGenerated("nether"))
-                server.generateLevel("nether", System.currentTimeMillis(), VanillaNether.class, new HashMap<>(), Anvil.class);
-            else
-                server.loadLevel("nether");
-        }
-
-        if(server.isTheEndAllowed()) {
-            if(!server.isLevelGenerated("the_end"))
-                server.generateLevel("the_end", System.currentTimeMillis(), VanillaTheEnd.class, new HashMap<>(), Anvil.class);
-            else
-                server.loadLevel("the_end");
-        }
     }
 
     @Override
