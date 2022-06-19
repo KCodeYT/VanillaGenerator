@@ -443,6 +443,7 @@ public class Client {
             final PlayerActionPacket playerActionPacket = new PlayerActionPacket();
             playerActionPacket.setRuntimeEntityId(this.runtimeId);
             playerActionPacket.setBlockPosition(Vector3i.from(this.currentPos.x, Math.min(64, this.currentPos.y), this.currentPos.z));
+            playerActionPacket.setResultPosition(Vector3i.from(this.currentPos.x, Math.min(64, this.currentPos.y), this.currentPos.z));
             playerActionPacket.setFace(0);
             playerActionPacket.setAction(PlayerActionType.DIMENSION_CHANGE_SUCCESS);
             this.send(playerActionPacket);
