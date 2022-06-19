@@ -49,6 +49,7 @@ public class BlockEntityData {
         CREATOR_MAP.put(BlockEntity.SMOKER, new BasicFurnaceCreator());
         CREATOR_MAP.put(BlockEntity.BLAST_FURNACE, new BasicFurnaceCreator());
         CREATOR_MAP.put(BlockEntity.CHEST, new ChestCreator());
+        CREATOR_MAP.put(BlockEntity.MOB_SPAWNER, new MobSpawnerCreator());
     }
 
     public static void direct(VanillaServer vanillaServer, FullChunk fullChunk, CompoundTag baseTag) {
