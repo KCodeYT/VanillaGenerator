@@ -38,6 +38,7 @@ import com.nukkitx.protocol.bedrock.data.command.CommandOriginData;
 import com.nukkitx.protocol.bedrock.data.command.CommandOriginType;
 import com.nukkitx.protocol.bedrock.handler.BatchHandler;
 import com.nukkitx.protocol.bedrock.packet.*;
+import de.kcodeyt.vanilla.VanillaGeneratorPlugin;
 import de.kcodeyt.vanilla.generator.chunk.ChunkData;
 import de.kcodeyt.vanilla.generator.chunk.ChunkRequest;
 import de.kcodeyt.vanilla.generator.client.clientdata.LoginData;
@@ -116,7 +117,7 @@ public class Client {
     public CompletableFuture<Client> connect(InetSocketAddress serverAddress) {
         return this.bedrockClient.connect(serverAddress).whenComplete((session, connectError) -> {
             if(connectError != null) {
-                Server.getInstance().getLogger().error("Could not connect to background server! Address: " + serverAddress, connectError);
+                VanillaGeneratorPlugin.getInstance().getLogger().error("Could not connect to background server! Address: " + serverAddress, connectError);
                 return;
             }
 

@@ -16,7 +16,6 @@
 
 package de.kcodeyt.vanilla.generator.server;
 
-import cn.nukkit.Server;
 import cn.nukkit.level.Level;
 import cn.nukkit.level.format.generic.BaseFullChunk;
 import de.kcodeyt.vanilla.VanillaGeneratorPlugin;
@@ -83,14 +82,14 @@ public class VanillaServer {
                 if(line.contains("IPv4 supported, port:") && this.firstSeen) {
                     String[] split = line.split(" ");
                     this.port = Integer.parseInt(split[split.length - 1]);
-                    Server.getInstance().getLogger().info("Server " + this.world.getWorldName() + " bound to " + this.port + " (Started in " + (Math.round(((System.currentTimeMillis() - startTime) / 1000f) * 100) / 100f) + "s!)");
+                    VanillaGeneratorPlugin.getInstance().getLogger().info("Server " + this.world.getWorldName() + " bound to " + this.port + " (Started in " + (Math.round(((System.currentTimeMillis() - startTime) / 1000f) * 100) / 100f) + "s!)");
                     this.firstSeen = false;
 
                     this.connect();
                 }
             });
         } catch(IOException e) {
-            Server.getInstance().getLogger().error("Could not start BDS", e);
+            VanillaGeneratorPlugin.getInstance().getLogger().error("Could not start BDS", e);
         }
     }
 

@@ -16,12 +16,12 @@
 
 package de.kcodeyt.vanilla.world.blockentity;
 
-import cn.nukkit.Server;
 import cn.nukkit.blockentity.BlockEntity;
 import cn.nukkit.blockentity.BlockEntityChest;
 import cn.nukkit.level.format.FullChunk;
 import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.nbt.tag.LongTag;
+import de.kcodeyt.vanilla.VanillaGeneratorPlugin;
 import de.kcodeyt.vanilla.behavior.LootTable;
 import de.kcodeyt.vanilla.generator.server.VanillaServer;
 
@@ -40,7 +40,7 @@ public class ChestCreator implements BlockEntityCreator {
         if(blockEntity instanceof BlockEntityChest && lootTableIdentifier != null) {
             final LootTable lootTable = generator.getLootTableManager().getLootTable(lootTableIdentifier);
             if(lootTable == null) {
-                Server.getInstance().getLogger().warning("Could not find loot table with name \"" + lootTableIdentifier + "\"!");
+                VanillaGeneratorPlugin.getInstance().getLogger().warning("Could not find loot table with name \"" + lootTableIdentifier + "\"!");
                 return;
             }
 
