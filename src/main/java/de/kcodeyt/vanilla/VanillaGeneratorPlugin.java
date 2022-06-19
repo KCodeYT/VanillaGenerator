@@ -24,6 +24,7 @@ import cn.nukkit.event.player.PlayerJoinEvent;
 import cn.nukkit.level.Level;
 import cn.nukkit.level.generator.Generator;
 import cn.nukkit.plugin.PluginBase;
+import cn.nukkit.utils.Config;
 import com.google.common.util.concurrent.MoreExecutors;
 import de.kcodeyt.vanilla.command.LocateCommand;
 import de.kcodeyt.vanilla.command.SudoCommand;
@@ -80,6 +81,9 @@ public class VanillaGeneratorPlugin extends PluginBase implements Listener {
     @Getter
     private EncryptionKeyFactory encryptionKeyFactory;
 
+    @Getter
+    private boolean debugTip = true;
+
     public static synchronized CompletableFuture<VanillaServer> getVanillaServer(Level level) {
         return VANILLA_SERVERS.stream().filter(vanillaServer -> vanillaServer.isLevel(level)).findAny().
                 map(CompletableFuture::completedFuture).
@@ -125,22 +129,39 @@ public class VanillaGeneratorPlugin extends PluginBase implements Listener {
         server.getCommandMap().register("world", new WorldCommand());
         server.getCommandMap().register("world", new LocateCommand());
         server.getCommandMap().register("world", new SudoCommand());
+
+        this.loadConfig();
+    }
+
+    private void loadConfig() {
+        this.saveResource("config.yml");
+        final Config config = this.getConfig();
+
+        if(!config.exists("debug-tip")) {
+            config.set("debug-tip", true);
+            config.save();
+        }
+
+        this.debugTip = config.getBoolean("debug-tip");
     }
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         final Player player = event.getPlayer();
         player.setCheckMovement(false);
-        this.getServer().getScheduler().scheduleRepeatingTask(null, () -> {
-            if(!player.isOnline()) return;
 
-            final float tps = this.getServer().getTicksPerSecond();
-            final float avgTps = this.getServer().getTicksPerSecondAverage();
-            final String tpsColor = tps < 0 ? "§5" : tps < 4 ? "§4" : tps < 8 ? "§c" : tps < 16 ? "§6" : "§a";
-            final String avgTpsColor = avgTps < 0 ? "§5" : avgTps < 4 ? "§4" : avgTps < 8 ? "§c" : avgTps < 16 ? "§6" : "§a";
-            player.sendActionBar("TPS: " + tpsColor + tps + "§f Average TPS: " + avgTpsColor + avgTps + "\n" +
-                    "§fChunk: " + player.getChunkX() + ":" + player.getChunkZ());
-        }, 5, true);
+        if(this.debugTip) {
+            this.getServer().getScheduler().scheduleRepeatingTask(null, () -> {
+                if(!player.isOnline()) return;
+
+                final float tps = this.getServer().getTicksPerSecond();
+                final float avgTps = this.getServer().getTicksPerSecondAverage();
+                final String tpsColor = tps < 0 ? "§5" : tps < 4 ? "§4" : tps < 8 ? "§c" : tps < 16 ? "§6" : "§a";
+                final String avgTpsColor = avgTps < 0 ? "§5" : avgTps < 4 ? "§4" : avgTps < 8 ? "§c" : avgTps < 16 ? "§6" : "§a";
+                player.sendActionBar("TPS: " + tpsColor + tps + "§f Average TPS: " + avgTpsColor + avgTps + "\n" +
+                        "§fChunk: " + player.getChunkX() + ":" + player.getChunkZ());
+            }, 5, true);
+        }
     }
 
     @Override

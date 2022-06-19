@@ -1,0 +1,2 @@
+#Whether we should send a debug tip which shows the current tps and the current chunk the player is in
+debug-tip: true
