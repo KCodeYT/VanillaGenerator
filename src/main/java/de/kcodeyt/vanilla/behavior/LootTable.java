@@ -16,9 +16,9 @@
 
 package de.kcodeyt.vanilla.behavior;
 
-import cn.nukkit.Server;
 import cn.nukkit.inventory.Inventory;
 import cn.nukkit.item.Item;
+import de.kcodeyt.vanilla.VanillaGeneratorPlugin;
 import de.kcodeyt.vanilla.behavior.function.LootTableFunction;
 import de.kcodeyt.vanilla.util.ItemIdentifier;
 
@@ -38,7 +38,7 @@ public record LootTable(String path, String name, List<Pool> pools) {
     public void fillInventory(Inventory inventory, Long randomSeed) {
         final List<Integer> freeSlots = IntStream.range(0, inventory.getSize()).filter(slot -> inventory.getItem(slot).isNull()).boxed().collect(Collectors.toList());
         if(freeSlots.size() < inventory.getSize()) {
-            Server.getInstance().getLogger().warning("Tried to overfill inventory!");
+            VanillaGeneratorPlugin.getInstance().getLogger().warning("Tried to overfill inventory!");
             return;
         }
 

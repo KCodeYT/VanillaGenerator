@@ -16,8 +16,8 @@
 
 package de.kcodeyt.vanilla.behavior.function;
 
-import cn.nukkit.Server;
 import cn.nukkit.item.Item;
+import de.kcodeyt.vanilla.VanillaGeneratorPlugin;
 
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
@@ -52,7 +52,7 @@ public class FunctionRegistry {
                     constructor.setAccessible(true);
                     return constructor.newInstance(args);
                 } catch(InstantiationException | NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
-                    Server.getInstance().getLogger().error("Could not initialize function!", e);
+                    VanillaGeneratorPlugin.getInstance().getLogger().error("Could not initialize function!", e);
                 }
             }
         }

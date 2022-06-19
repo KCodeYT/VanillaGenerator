@@ -16,7 +16,10 @@
 
 package de.kcodeyt.vanilla.enchantment;
 
-import cn.nukkit.item.*;
+import cn.nukkit.item.Item;
+import cn.nukkit.item.ItemArmor;
+import cn.nukkit.item.ItemID;
+import cn.nukkit.item.ItemTool;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 

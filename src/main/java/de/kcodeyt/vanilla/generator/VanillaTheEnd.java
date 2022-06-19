@@ -17,7 +17,6 @@
 package de.kcodeyt.vanilla.generator;
 
 import cn.nukkit.level.Level;
-import cn.nukkit.level.generator.Generator;
 
 import java.util.Map;
 

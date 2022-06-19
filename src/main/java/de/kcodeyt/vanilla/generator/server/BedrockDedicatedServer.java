@@ -17,6 +17,7 @@
 package de.kcodeyt.vanilla.generator.server;
 
 import cn.nukkit.Server;
+import de.kcodeyt.vanilla.VanillaGeneratorPlugin;
 import de.kcodeyt.vanilla.world.World;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.SystemUtils;
@@ -113,7 +114,7 @@ class BedrockDedicatedServer {
 
             FUTURE.whenComplete((original, throwable) -> {
                 if(throwable != null)
-                    Server.getInstance().getLogger().error("Could not download server binaries", throwable);
+                    VanillaGeneratorPlugin.getInstance().getLogger().error("Could not download server binaries", throwable);
                 else
                     try {
                         FileUtils.copyDirectory(original, tempServer);
@@ -124,23 +125,23 @@ class BedrockDedicatedServer {
                             try(final FileOutputStream outputStream = new FileOutputStream(startFile)) {
                                 outputStream.write("#!/bin/bash\nLD_LIBRARY_PATH=. ./bedrock_server".getBytes());
                             } catch(IOException e) {
-                                Server.getInstance().getLogger().error("Could now write bash script for starting BDS", e);
+                                VanillaGeneratorPlugin.getInstance().getLogger().error("Could now write bash script for starting BDS", e);
                             }
 
                             try {
                                 Files.setPosixFilePermissions(startFile.toPath(), PosixFilePermissions.fromString("rwxr--r--"));
                             } catch(IOException e) {
-                                Server.getInstance().getLogger().error("Could not set execute flag on bash script", e);
+                                VanillaGeneratorPlugin.getInstance().getLogger().error("Could not set execute flag on bash script", e);
                             }
 
                             try {
                                 Files.setPosixFilePermissions(binaryFile.toPath(), PosixFilePermissions.fromString("rwxr--r--"));
                             } catch(IOException e) {
-                                Server.getInstance().getLogger().error("Could not set execute flag on bedrock server binary", e);
+                                VanillaGeneratorPlugin.getInstance().getLogger().error("Could not set execute flag on bedrock server binary", e);
                             }
                         }
                     } catch(IOException e) {
-                        Server.getInstance().getLogger().error("Could not copy from server template to world server directory", e);
+                        VanillaGeneratorPlugin.getInstance().getLogger().error("Could not copy from server template to world server directory", e);
                     }
             }).join();
         }
@@ -177,11 +178,11 @@ class BedrockDedicatedServer {
                 lines.add(line);
             }
         } catch(IOException e) {
-            Server.getInstance().getLogger().error("Could not edit world servers server.properties", e);
+            VanillaGeneratorPlugin.getInstance().getLogger().error("Could not edit world servers server.properties", e);
         }
 
         if(!serverProperties.delete()) {
-            Server.getInstance().getLogger().error("Could not delete world servers server.properties");
+            VanillaGeneratorPlugin.getInstance().getLogger().error("Could not delete world servers server.properties");
             return;
         }
 
@@ -195,7 +196,7 @@ class BedrockDedicatedServer {
                 bufferedWriter.flush();
             }
         } catch(IOException e) {
-            Server.getInstance().getLogger().error("Could not edit world servers server.properties", e);
+            VanillaGeneratorPlugin.getInstance().getLogger().error("Could not edit world servers server.properties", e);
         }
     }
 

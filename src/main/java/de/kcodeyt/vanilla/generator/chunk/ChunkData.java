@@ -16,7 +16,6 @@
 
 package de.kcodeyt.vanilla.generator.chunk;
 
-import cn.nukkit.Server;
 import cn.nukkit.blockstate.BlockState;
 import cn.nukkit.blockstate.BlockStateRegistry;
 import cn.nukkit.level.biome.Biome;
@@ -27,6 +26,7 @@ import cn.nukkit.nbt.tag.CompoundTag;
 import cn.nukkit.utils.BinaryStream;
 import com.nukkitx.protocol.bedrock.data.SubChunkData;
 import com.nukkitx.protocol.bedrock.data.SubChunkRequestResult;
+import de.kcodeyt.vanilla.VanillaGeneratorPlugin;
 import de.kcodeyt.vanilla.generator.server.VanillaServer;
 import de.kcodeyt.vanilla.util.Palette;
 import de.kcodeyt.vanilla.world.BlockEntityData;
@@ -38,7 +38,6 @@ import lombok.Setter;
 
 import java.nio.ByteOrder;
 import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * @author Kevims KCodeYT
@@ -124,9 +123,9 @@ public class ChunkData {
 
             final long timeTook = System.currentTimeMillis() - startTime;
             if(timeTook > 1500)
-                Server.getInstance().getLogger().warning("Build chunk take too long! Took " + timeTook + "ms!");
+                VanillaGeneratorPlugin.getInstance().getLogger().warning("Build chunk take too long! Took " + timeTook + "ms!");
         } catch(Throwable throwable) {
-            Server.getInstance().getLogger().error("GOT EXCEPTION", throwable);
+            VanillaGeneratorPlugin.getInstance().getLogger().error("GOT EXCEPTION", throwable);
         }
     }
 

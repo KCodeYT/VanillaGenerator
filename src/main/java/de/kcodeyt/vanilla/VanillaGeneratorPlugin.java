@@ -22,9 +22,9 @@ import cn.nukkit.event.EventHandler;
 import cn.nukkit.event.Listener;
 import cn.nukkit.event.player.PlayerJoinEvent;
 import cn.nukkit.level.Level;
-import cn.nukkit.level.format.anvil.Anvil;
 import cn.nukkit.level.generator.Generator;
 import cn.nukkit.plugin.PluginBase;
+import cn.nukkit.utils.Config;
 import com.google.common.util.concurrent.MoreExecutors;
 import de.kcodeyt.vanilla.command.LocateCommand;
 import de.kcodeyt.vanilla.command.SudoCommand;
@@ -41,7 +41,6 @@ import lombok.Getter;
 import javax.imageio.ImageIO;
 import java.io.IOException;
 import java.net.URL;
-import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -82,6 +81,11 @@ public class VanillaGeneratorPlugin extends PluginBase implements Listener {
     @Getter
     private EncryptionKeyFactory encryptionKeyFactory;
 
+    @Getter
+    private boolean debugTip = true;
+    @Getter
+    private int fakePlayersPerGenerator = 2;
+
     public static synchronized CompletableFuture<VanillaServer> getVanillaServer(Level level) {
         return VANILLA_SERVERS.stream().filter(vanillaServer -> vanillaServer.isLevel(level)).findAny().
                 map(CompletableFuture::completedFuture).
@@ -112,27 +116,11 @@ public class VanillaGeneratorPlugin extends PluginBase implements Listener {
         instance = this;
 
         this.executorService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(4));
-
         this.encryptionKeyFactory = new EncryptionKeyFactory();
 
         Generator.addGenerator(VanillaOverworld.class, "vanilla", VanillaOverworld.TYPE);
         Generator.addGenerator(VanillaNether.class, "vanilla_nether", VanillaNether.TYPE);
         Generator.addGenerator(VanillaTheEnd.class, "vanilla_the_end", VanillaTheEnd.TYPE);
-
-        final Server server = this.getServer();
-        if(server.isNetherAllowed()) {
-            if(!server.isLevelGenerated("nether"))
-                server.generateLevel("nether", System.currentTimeMillis(), VanillaNether.class, new HashMap<>(), Anvil.class);
-            else
-                server.loadLevel("nether");
-        }
-
-        if(server.isTheEndAllowed()) {
-            if(!server.isLevelGenerated("the_end"))
-                server.generateLevel("the_end", System.currentTimeMillis(), VanillaTheEnd.class, new HashMap<>(), Anvil.class);
-            else
-                server.loadLevel("the_end");
-        }
     }
 
     @Override
@@ -143,22 +131,52 @@ public class VanillaGeneratorPlugin extends PluginBase implements Listener {
         server.getCommandMap().register("world", new WorldCommand());
         server.getCommandMap().register("world", new LocateCommand());
         server.getCommandMap().register("world", new SudoCommand());
+
+        this.loadConfig();
+    }
+
+    private void loadConfig() {
+        this.saveResource("config.yml");
+        final Config config = this.getConfig();
+
+        if(!config.exists("debug-tip")) {
+            config.set("debug-tip", true);
+            config.save();
+        }
+
+        this.debugTip = config.getBoolean("debug-tip");
+
+        if(!config.exists("fake-players")) {
+            config.set("fake-players", 2);
+            config.save();
+        }
+
+        final int fakePlayers = config.getInt("fake-players");
+        if(fakePlayers != Math.max(1, Math.min(5, fakePlayers))) {
+            config.set("fake-players", Math.max(1, Math.min(5, fakePlayers)));
+            config.save();
+        }
+
+        this.fakePlayersPerGenerator = config.getInt("fake-players");
     }
 
     @EventHandler
     public void onJoin(PlayerJoinEvent event) {
         final Player player = event.getPlayer();
         player.setCheckMovement(false);
-        this.getServer().getScheduler().scheduleRepeatingTask(null, () -> {
-            if(!player.isOnline()) return;
 
-            final float tps = this.getServer().getTicksPerSecond();
-            final float avgTps = this.getServer().getTicksPerSecondAverage();
-            final String tpsColor = tps < 0 ? "§5" : tps < 4 ? "§4" : tps < 8 ? "§c" : tps < 16 ? "§6" : "§a";
-            final String avgTpsColor = avgTps < 0 ? "§5" : avgTps < 4 ? "§4" : avgTps < 8 ? "§c" : avgTps < 16 ? "§6" : "§a";
-            player.sendActionBar("TPS: " + tpsColor + tps + "§f Average TPS: " + avgTpsColor + avgTps + "\n" +
-                    "§fChunk: " + player.getChunkX() + ":" + player.getChunkZ());
-        }, 5, true);
+        if(this.debugTip) {
+            this.getServer().getScheduler().scheduleRepeatingTask(null, () -> {
+                if(!player.isOnline()) return;
+
+                final float tps = this.getServer().getTicksPerSecond();
+                final float avgTps = this.getServer().getTicksPerSecondAverage();
+                final String tpsColor = tps < 0 ? "§5" : tps < 4 ? "§4" : tps < 8 ? "§c" : tps < 16 ? "§6" : "§a";
+                final String avgTpsColor = avgTps < 0 ? "§5" : avgTps < 4 ? "§4" : avgTps < 8 ? "§c" : avgTps < 16 ? "§6" : "§a";
+                player.sendActionBar("TPS: " + tpsColor + tps + "§f Average TPS: " + avgTpsColor + avgTps + "\n" +
+                        "§fChunk: " + player.getChunkX() + ":" + player.getChunkZ());
+            }, 5, true);
+        }
     }
 
     @Override
