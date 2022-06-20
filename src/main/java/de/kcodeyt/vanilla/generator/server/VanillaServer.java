@@ -116,21 +116,17 @@ public class VanillaServer {
     }
 
     private void connectClient() {
-        try {
-            final LoginData loginData = this.generateLoginData();
-            final Client client = new Client(this, loginData, this.world.getPlugin().getEncryptionKeyFactory(), this.queue);
-            this.clients.add(client.onDisconnect(reason -> {
-                final ChunkRequest chunkRequest = client.getCurrent();
-                if(chunkRequest != null) this.queue.offer(chunkRequest);
+        final LoginData loginData = this.generateLoginData();
+        final Client client = new Client(this, loginData, this.world.getPlugin().getEncryptionKeyFactory(), this.queue);
+        this.clients.add(client.onDisconnect(reason -> {
+            final ChunkRequest chunkRequest = client.getCurrent();
+            if(chunkRequest != null) this.queue.offer(chunkRequest);
 
-                this.clients.remove(client);
-                if(this.manualClose.get()) return;
+            this.clients.remove(client);
+            if(this.manualClose.get()) return;
 
-                this.world.getPlugin().getExecutorService().schedule(this::connectClient, 500, TimeUnit.MILLISECONDS);
-            }).connect(new InetSocketAddress(InetAddress.getLocalHost(), this.port)).join());
-        } catch(UnknownHostException e) {
-            e.printStackTrace();
-        }
+            this.world.getPlugin().getExecutorService().schedule(this::connectClient, 500, TimeUnit.MILLISECONDS);
+        }).connect(new InetSocketAddress(VanillaGeneratorPlugin.getInstance().getLocalIpAddress(), this.port)).join());
     }
 
     public void requestChunk(BaseFullChunk fullChunk) {

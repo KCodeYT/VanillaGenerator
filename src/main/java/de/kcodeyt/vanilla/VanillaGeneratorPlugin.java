@@ -86,6 +86,9 @@ public class VanillaGeneratorPlugin extends PluginBase implements Listener {
     @Getter
     private int fakePlayersPerGenerator = 2;
 
+    @Getter
+    private String localIpAddress = "127.0.0.1";
+
     public static synchronized CompletableFuture<VanillaServer> getVanillaServer(Level level) {
         return VANILLA_SERVERS.stream().filter(vanillaServer -> vanillaServer.isLevel(level)).findAny().
                 map(CompletableFuture::completedFuture).
@@ -158,6 +161,13 @@ public class VanillaGeneratorPlugin extends PluginBase implements Listener {
         }
 
         this.fakePlayersPerGenerator = config.getInt("fake-players");
+
+        if(!config.exists("local-address")) {
+            config.set("local-address", "127.0.0.1");
+            config.save();
+        }
+
+        this.localIpAddress = config.getString("local-address");
     }
 
     @EventHandler

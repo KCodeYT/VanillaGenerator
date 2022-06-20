@@ -17,7 +17,6 @@
 package de.kcodeyt.vanilla.util;
 
 import cn.nukkit.utils.BinaryStream;
-import org.apache.commons.math3.util.FastMath;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -46,7 +45,7 @@ public class Palette {
     public static short[] parseIndices(BinaryStream binaryStream, int version) {
         final short[] indices = new short[SIZE];
         final int words = WORDS_MAP.get(version);
-        final int iterations = (int) FastMath.ceil(SIZE / (float) words);
+        final int iterations = SimpleMath.ceil(SIZE / (float) words);
         for(int i = 0; i < iterations; i++) {
             final int data = binaryStream.getLInt();
             int rIndex = 0;

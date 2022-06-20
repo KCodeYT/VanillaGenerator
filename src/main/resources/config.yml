@@ -4,3 +4,6 @@ debug-tip: true
 #Fake players per background server, this can increase the load of the server but makes chunk generation faster.
 #This number has to be between 1 and 5
 fake-players: 2
+
+#The local ip address of the server running this plugin.
+local-address: "127.0.0.1"
