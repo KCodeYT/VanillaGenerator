@@ -54,6 +54,7 @@ import lombok.Getter;
 
 import javax.crypto.spec.SecretKeySpec;
 import java.net.InetSocketAddress;
+import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.util.*;
@@ -67,12 +68,12 @@ import java.util.function.Consumer;
 @Getter
 public class Client {
 
-    private final EncryptionKeyFactory keyFactory;
     private final ScheduledExecutorService executorService;
 
     private final BedrockClient bedrockClient;
     private final VanillaServer vanillaServer;
     private final LoginData loginData;
+    private final KeyPair keyPair;
     private final World world;
     private final Level level;
     private final List<Consumer<CommandOutputPacket>> commandConsumers;
@@ -95,13 +96,12 @@ public class Client {
 
     private InetSocketAddress serverAddress;
 
-    public Client(VanillaServer vanillaServer, LoginData loginData,
-                  EncryptionKeyFactory encryptionKeyFactory, Queue<ChunkRequest> queue) {
+    public Client(VanillaServer vanillaServer, LoginData loginData, Queue<ChunkRequest> queue) {
         this.vanillaServer = vanillaServer;
         this.loginData = loginData;
+        this.keyPair = EncryptionKeyFactory.INSTANCE.createKeyPair();
         this.world = vanillaServer.getWorld();
         this.level = this.world.getLevel();
-        this.keyFactory = encryptionKeyFactory;
         this.executorService = Executors.newSingleThreadScheduledExecutor();
         this.queue = queue;
         this.commandConsumers = new ArrayList<>();
@@ -215,14 +215,14 @@ public class Client {
             this.state = PlayerConnectionState.LOGIN;
 
             final MojangLoginForger mojangLoginForger = new MojangLoginForger();
-            mojangLoginForger.setPublicKey(this.keyFactory.getKeyPair().getPublic());
+            mojangLoginForger.setPublicKey(this.keyPair.getPublic());
             mojangLoginForger.setUsername(this.loginData.getName());
             mojangLoginForger.setUuid(this.loginData.getUniqueId());
             mojangLoginForger.setXuid(this.loginData.getXuid());
             mojangLoginForger.setSkinData(this.loginData.buildSkinData(ThreadLocalRandom.current(), this.serverAddress));
 
-            final String jwt = "{\"chain\":[\"" + mojangLoginForger.forge(this.keyFactory.getKeyPair().getPrivate()) + "\"]}";
-            final String skin = mojangLoginForger.forgeSkin(this.keyFactory.getKeyPair().getPrivate());
+            final String jwt = "{\"chain\":[\"" + mojangLoginForger.forge(this.keyPair.getPrivate()) + "\"]}";
+            final String skin = mojangLoginForger.forgeSkin(this.keyPair.getPrivate());
             final LoginPacket loginPacket = new LoginPacket();
             loginPacket.setProtocolVersion(Network.CODEC.getProtocolVersion());
             loginPacket.setChainData(new AsciiString(jwt));
@@ -343,10 +343,10 @@ public class Client {
                 try {
                     final JwtToken token = JwtToken.parse(packetEncryptionRequest.getJwt());
                     final String publicKeyB64 = token.getHeader().getProperty(String.class, "x5u");
-                    final PublicKey publicKey = this.keyFactory.createPublicKey(publicKeyB64);
+                    final PublicKey publicKey = EncryptionKeyFactory.INSTANCE.createPublicKey(publicKeyB64);
 
                     if(token.validateSignature(publicKey)) {
-                        final EncryptionHandler encryptionHandler = new EncryptionHandler(this.keyFactory, publicKey);
+                        final EncryptionHandler encryptionHandler = new EncryptionHandler(this.keyPair, publicKey);
                         if(encryptionHandler.beginServersideEncryption(Base64.getDecoder().decode(token.getClaim(String.class, "salt"))))
                             this.clientSession.enableEncryption(new SecretKeySpec(encryptionHandler.getServerKey(), "AES"));
 

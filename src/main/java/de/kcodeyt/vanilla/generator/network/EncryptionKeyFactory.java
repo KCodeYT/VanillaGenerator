@@ -16,39 +16,64 @@
 
 package de.kcodeyt.vanilla.generator.network;
 
+import de.kcodeyt.vanilla.VanillaGeneratorPlugin;
 import lombok.Getter;
 
 import java.security.*;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.X509EncodedKeySpec;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 
 /**
  * @author Kevims KCodeYT
  * @version 1.0-SNAPSHOT
  */
-@Getter
 public class EncryptionKeyFactory {
 
-    private KeyFactory keyFactory;
-    private KeyPair keyPair;
+    public static final EncryptionKeyFactory INSTANCE = new EncryptionKeyFactory();
+
+    @Getter
+    private final List<Exception> initExceptions = new ArrayList<>();
+
+    private final KeyFactory keyFactory;
+    private final KeyPairGenerator keyPairGenerator;
 
     public EncryptionKeyFactory() {
+        this.keyFactory = this.initKeyFactory();
+        this.keyPairGenerator = this.initKeyPairGenerator();
+    }
+
+    private KeyFactory initKeyFactory() {
         try {
-            this.keyFactory = KeyFactory.getInstance("EC");
+            return KeyFactory.getInstance("EC");
+        } catch(NoSuchAlgorithmException e) {
+            this.initExceptions.add(e);
+            return null;
+        }
+    }
+
+    public KeyPairGenerator initKeyPairGenerator() {
+        try {
             final KeyPairGenerator generator = KeyPairGenerator.getInstance("EC");
             generator.initialize(384);
-            this.keyPair = generator.generateKeyPair();
+            return generator;
         } catch(NoSuchAlgorithmException e) {
-            e.printStackTrace();
+            this.initExceptions.add(e);
+            return null;
         }
+    }
+
+    public KeyPair createKeyPair() {
+        return this.keyPairGenerator.generateKeyPair();
     }
 
     public PublicKey createPublicKey(String base64) {
         try {
             return this.keyFactory.generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(base64)));
         } catch(InvalidKeySpecException e) {
-            e.printStackTrace();
+            VanillaGeneratorPlugin.getInstance().getLogger().error("Failed to create public key from base64 string: " + base64, e);
             return null;
         }
     }

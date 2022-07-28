@@ -21,6 +21,7 @@ import cn.nukkit.Server;
 import cn.nukkit.event.EventHandler;
 import cn.nukkit.event.Listener;
 import cn.nukkit.event.player.PlayerJoinEvent;
+import cn.nukkit.level.DimensionData;
 import cn.nukkit.level.Level;
 import cn.nukkit.level.generator.Generator;
 import cn.nukkit.plugin.PluginBase;
@@ -78,8 +79,6 @@ public class VanillaGeneratorPlugin extends PluginBase implements Listener {
 
     @Getter
     private ScheduledExecutorService executorService;
-    @Getter
-    private EncryptionKeyFactory encryptionKeyFactory;
 
     @Getter
     private boolean debugTip = true;
@@ -93,20 +92,12 @@ public class VanillaGeneratorPlugin extends PluginBase implements Listener {
         return VANILLA_SERVERS.stream().filter(vanillaServer -> vanillaServer.isLevel(level)).findAny().
                 map(CompletableFuture::completedFuture).
                 orElseGet(() -> CompletableFuture.supplyAsync(() -> {
-                    final int minY = switch(level.getGenerator().getDimension()) {
-                        case Level.DIMENSION_OVERWORLD -> -4;
-                        case Level.DIMENSION_NETHER, Level.DIMENSION_THE_END -> 0;
-                        default -> -1;
-                    };
-                    final int maxY = switch(level.getGenerator().getDimension()) {
-                        case Level.DIMENSION_OVERWORLD -> 20;
-                        case Level.DIMENSION_NETHER -> 8;
-                        case Level.DIMENSION_THE_END -> 16;
-                        default -> -1;
-                    };
-                    final int dimension = level.getGenerator().getDimension();
+                    final DimensionData dimensionData = level.getGenerator().getDimensionData();
+                    final int minY = dimensionData.getMinHeight() >> 4;
+                    final int maxY = (dimensionData.getMaxHeight() + 1) >> 4;
+                    final int dimensionId = dimensionData.getDimensionId();
 
-                    final VanillaServer vanillaServer = new VanillaServer(new World(instance, level, dimension, minY, maxY));
+                    final VanillaServer vanillaServer = new VanillaServer(new World(instance, level, dimensionId, minY, maxY));
                     synchronized(VANILLA_SERVERS) {
                         VANILLA_SERVERS.add(vanillaServer);
                         return vanillaServer;
@@ -116,10 +107,16 @@ public class VanillaGeneratorPlugin extends PluginBase implements Listener {
 
     @Override
     public void onLoad() {
+        final List<Exception> initExceptions = EncryptionKeyFactory.INSTANCE.getInitExceptions();
+        if(!initExceptions.isEmpty()) {
+            this.getLogger().error("Could not initialize encryption factory!");
+            for(Exception exception : initExceptions) this.getLogger().error(exception.getMessage(), exception);
+            return;
+        }
+
         instance = this;
 
         this.executorService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(4));
-        this.encryptionKeyFactory = new EncryptionKeyFactory();
 
         Generator.addGenerator(VanillaOverworld.class, "vanilla", VanillaOverworld.TYPE);
         Generator.addGenerator(VanillaNether.class, "vanilla_nether", VanillaNether.TYPE);
