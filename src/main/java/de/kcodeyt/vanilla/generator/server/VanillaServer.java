@@ -32,9 +32,7 @@ import org.apache.commons.lang3.SystemUtils;
 
 import java.io.File;
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
 import java.util.List;
 import java.util.Queue;
 import java.util.UUID;
@@ -117,7 +115,7 @@ public class VanillaServer {
 
     private void connectClient() {
         final LoginData loginData = this.generateLoginData();
-        final Client client = new Client(this, loginData, this.world.getPlugin().getEncryptionKeyFactory(), this.queue);
+        final Client client = new Client(this, loginData, this.queue);
         this.clients.add(client.onDisconnect(reason -> {
             final ChunkRequest chunkRequest = client.getCurrent();
             if(chunkRequest != null) this.queue.offer(chunkRequest);

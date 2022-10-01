@@ -34,7 +34,7 @@ public class EncryptionHandler {
 
     private static final ThreadLocal<MessageDigest> SHA256_DIGEST = new ThreadLocal<>();
 
-    private final EncryptionKeyFactory keyFactory;
+    private final KeyPair keyPair;
     private final PublicKey serverPublicKey;
 
     private byte[] serverKey;
@@ -46,7 +46,7 @@ public class EncryptionHandler {
             return true;
         }
 
-        final byte[] secret = this.generateECDHSecret(this.keyFactory.getKeyPair().getPrivate(), this.serverPublicKey);
+        final byte[] secret = this.generateECDHSecret(this.keyPair.getPrivate(), this.serverPublicKey);
         if(secret == null) return false;
 
         final byte[] result = new byte[16];

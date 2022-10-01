@@ -86,18 +86,17 @@ public class LocateCommand extends Command {
         return true;
     }
 
-    @SuppressWarnings("SpellCheckingInspection")
     private enum LocateSubcommandStructureEnum {
-        ANCIENTCITY,
-        BASTIONREMNANT,
-        BURIEDTREASURE,
-        ENDCITY,
+        ANCIENT_CITY,
+        BASTION_REMNANT,
+        BURIED_TREASURE,
+        END_CITY,
         FORTRESS,
         MANSION,
         MINESHAFT,
         MONUMENT,
-        PILLAGEROUTPOST,
-        RUINEDPORTAL,
+        PILLAGER_OUTPOST,
+        RUINED_PORTAL,
         RUINS,
         SHIPWRECK,
         STRONGHOLD,

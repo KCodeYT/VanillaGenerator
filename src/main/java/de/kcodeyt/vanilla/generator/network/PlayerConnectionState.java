@@ -29,10 +29,11 @@ package de.kcodeyt.vanilla.generator.network;
  */
 public enum PlayerConnectionState {
 
+    NETWORK_INIT,
     HANDSHAKE,
     ENCRPYTION_INIT,
     RESOURCE_PACK,
     LOGIN,
-    PLAYING;
+    PLAYING
 
 }

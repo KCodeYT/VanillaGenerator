@@ -38,8 +38,8 @@ import java.util.zip.ZipInputStream;
  */
 class BedrockDedicatedServer {
 
-    private static final String WINDOWS_DIST = "https://minecraft.azureedge.net/bin-win/bedrock-server-1.19.10.03.zip";
-    private static final String LINUX_DIST = "https://minecraft.azureedge.net/bin-linux/bedrock-server-1.19.10.03.zip";
+    private static final String WINDOWS_DIST = "https://minecraft.azureedge.net/bin-win/bedrock-server-1.19.30.04.zip";
+    private static final String LINUX_DIST = "https://minecraft.azureedge.net/bin-linux/bedrock-server-1.19.30.04.zip";
 
     private static final File TEMP_DIRECTORY = new File("temp");
     private static final CompletableFuture<File> FUTURE = new CompletableFuture<>();
