@@ -18,22 +18,6 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      - name: Clone PowerNukkitX
-        uses: sudosubin/git-clone-action@v1.0.1
-        with:
-          repository: PowerNukkitX/PowerNukkitX
-          ref: master
-          path: PowerNukkitX
-
-      - name: Build PowerNukkitX
-        run: cd PowerNukkitX && mvn install
-
-      - name: Upload PowerNukkitX as artifact
-        uses: actions/upload-artifact@v3.0.0
-        with:
-          name: PowerNukkitX
-          path: PowerNukkitX/target/powernukkitx-1.6.0.0-PNX-SNAPSHOT-shaded.jar
-
       - name: Get name and version from pom.xml
         run: |
           VER=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
