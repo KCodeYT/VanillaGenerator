@@ -6,7 +6,7 @@
 
     <groupId>de.kcodeyt</groupId>
     <artifactId>VanillaGenerator</artifactId>
-    <version>0.0.9-SNAPSHOT</version>
+    <version>0.0.10-SNAPSHOT</version>
 
     <repositories>
         <repository>
@@ -19,7 +19,7 @@
         <dependency>
             <groupId>cn.powernukkitx</groupId>
             <artifactId>powernukkitx</artifactId>
-            <version>1.6.0.0-PNX</version>
+            <version>1.19.30-r1</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -50,8 +50,8 @@
         </dependency>
         <dependency>
             <groupId>com.nukkitx.protocol</groupId>
-            <artifactId>bedrock-v534</artifactId>
-            <version>2.9.9-SNAPSHOT</version>
+            <artifactId>bedrock-v554</artifactId>
+            <version>2.9.12-SNAPSHOT</version>
             <scope>compile</scope>
             <exclusions>
                 <exclusion>

@@ -81,7 +81,7 @@ public class Client {
     private final Set<ChunkData> chunks;
     private final Map<Vector2i, Biome[]> chunkBiomes;
     private BedrockClientSession clientSession;
-    private PlayerConnectionState state = PlayerConnectionState.HANDSHAKE;
+    private PlayerConnectionState state = PlayerConnectionState.NETWORK_INIT;
     private Location spawn;
     private int currentDimension;
     private Location currentPos;
@@ -107,7 +107,7 @@ public class Client {
         this.commandConsumers = new ArrayList<>();
         this.chunks = new CopyOnWriteArraySet<>();
         this.chunkBiomes = new ConcurrentHashMap<>();
-        this.bedrockClient = new BedrockClient(new InetSocketAddress("0.0.0.0", ThreadLocalRandom.current().nextInt(10000) + 30000));
+        this.bedrockClient = new BedrockClient(new InetSocketAddress("0.0.0.0", 0));
         this.bedrockClient.setRakNetVersion(Network.CODEC.getRaknetProtocolVersion());
         this.bedrockClient.bind().join();
     }
@@ -136,7 +136,7 @@ public class Client {
                     VanillaGeneratorPlugin.getInstance().getLogger().error("Error whilst handling packet!", e);
                 }
             });
-            this.login();
+            this.initNetwork();
         }).thenApply(session -> this);
     }
 
@@ -210,6 +210,15 @@ public class Client {
         }
     }
 
+    private void initNetwork() {
+        if(this.state == PlayerConnectionState.NETWORK_INIT) {
+            final RequestNetworkSettingsPacket requestNetworkSettingsPacket = new RequestNetworkSettingsPacket();
+            requestNetworkSettingsPacket.setProtocolVersion(Network.CODEC.getProtocolVersion());
+
+            this.sendImmediately(requestNetworkSettingsPacket);
+        }
+    }
+
     private void login() {
         if(this.state == PlayerConnectionState.HANDSHAKE) {
             this.state = PlayerConnectionState.LOGIN;
@@ -241,6 +250,18 @@ public class Client {
         if(bedrockPacket.getPacketType() == BedrockPacketType.DISCONNECT) {
             final DisconnectPacket disconnect = (DisconnectPacket) bedrockPacket;
             System.out.println("Disconnect: " + disconnect.getKickMessage());
+            return;
+        }
+
+        if(this.state == PlayerConnectionState.NETWORK_INIT) {
+            if(bedrockPacket.getPacketType() == BedrockPacketType.NETWORK_SETTINGS) {
+                final NetworkSettingsPacket networkSettingsPacket = (NetworkSettingsPacket) bedrockPacket;
+                this.clientSession.setCompression(networkSettingsPacket.getCompressionAlgorithm());
+
+                this.state = PlayerConnectionState.HANDSHAKE;
+                this.login();
+            }
+
             return;
         }
 
@@ -317,16 +338,6 @@ public class Client {
                 for(Map.Entry<Vector2i, List<SubChunkData>> entry : subChunks.entrySet()) {
                     this.chunks.add(new ChunkData(this.world, entry.getKey().getX(), entry.getKey().getY(), entry.getValue()));
                 }
-            }
-
-            if(bedrockPacket.getPacketType() == BedrockPacketType.BLOCK_ENTITY_DATA) {
-                final BlockEntityDataPacket blockEntityDataPacket = (BlockEntityDataPacket) bedrockPacket;
-
-            }
-
-            if(bedrockPacket.getPacketType() == BedrockPacketType.UPDATE_SUB_CHUNK_BLOCKS) {
-                final UpdateSubChunkBlocksPacket updateSubChunkBlocksPacket = (UpdateSubChunkBlocksPacket) bedrockPacket;
-
             }
         }
 
