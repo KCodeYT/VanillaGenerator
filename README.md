@@ -8,7 +8,7 @@ would theoretically and practically work.
 This project adds a vanilla generator to the [powernukkitx](https://github.com/PowerNukkitX/PowerNukkitX/) server
 software.
 
-⚠️ This plugin only works with powernukkitx for minecraft bedrock edition 1.19.10 (protocol 534) ⚠️
+⚠️ This plugin only works with powernukkitx for minecraft bedrock edition 1.19.30 (protocol 554) ⚠️
 
 How can I download this plugin?
 ------------------------------
