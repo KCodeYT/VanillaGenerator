@@ -19,7 +19,6 @@ package de.kcodeyt.vanilla.generator.client;
 import cn.nukkit.Server;
 import cn.nukkit.level.Level;
 import cn.nukkit.level.Location;
-import cn.nukkit.level.biome.Biome;
 import cn.nukkit.math.BlockVector3;
 import cn.nukkit.utils.BinaryStream;
 import com.nukkitx.math.vector.Vector2i;
@@ -50,6 +49,8 @@ import de.kcodeyt.vanilla.jwt.JwtToken;
 import de.kcodeyt.vanilla.util.Palette;
 import de.kcodeyt.vanilla.world.World;
 import io.netty.util.AsciiString;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import lombok.Getter;
 
 import javax.crypto.spec.SecretKeySpec;
@@ -79,7 +80,7 @@ public class Client {
     private final List<Consumer<CommandOutputPacket>> commandConsumers;
     private final Queue<ChunkRequest> queue;
     private final Set<ChunkData> chunks;
-    private final Map<Vector2i, Biome[]> chunkBiomes;
+    private final Map<Vector2i, Int2ObjectMap<int[]>> chunkBiomes;
     private BedrockClientSession clientSession;
     private PlayerConnectionState state = PlayerConnectionState.NETWORK_INIT;
     private Location spawn;
@@ -174,7 +175,6 @@ public class Client {
             if(this.current != null) {
                 final ChunkData chunkData = this.getChunk(this.current.getX(), this.current.getZ());
                 if(chunkData != null) {
-                    chunkData.setBiomes(this.chunkBiomes.remove(Vector2i.from(this.current.getX(), this.current.getZ())));
                     this.current.getFuture().resolve(chunkData);
                     this.chunks.remove(chunkData);
                     this.current = null;
@@ -188,7 +188,6 @@ public class Client {
             if(this.current != null) {
                 final ChunkData chunkData = this.getChunk(this.current.getX(), this.current.getZ());
                 if(chunkData != null) {
-                    chunkData.setBiomes(this.chunkBiomes.remove(Vector2i.from(this.current.getX(), this.current.getZ())));
                     this.current.getFuture().resolve(chunkData);
                     this.chunks.remove(chunkData);
                     this.current = null;
@@ -280,40 +279,43 @@ public class Client {
                 subChunkRequestPacket.setSubChunkPosition(networkPos);
 
                 final BinaryStream binaryStream = new BinaryStream(packet.getData());
+                final Int2ObjectMap<int[]> biomeSections = new Int2ObjectOpenHashMap<>();
 
-                int[] lastBiomes = null;
+                int[] biomesLast = null;
                 for(int y = this.world.getMinY(); y < this.world.getMaxY(); y++) {
                     final int header = binaryStream.getByte();
                     final int version = header >> 1;
 
+                    final int[] fullBiomes = new int[Palette.SIZE];
+
                     if(version == 0) {
                         final int biomeData = binaryStream.getVarInt();
-                        final int[] fullBiomes = new int[Palette.SIZE];
 
-                        for(int i = 0; i < Palette.SIZE; i++)
-                            fullBiomes[i] = biomeData;
-                        lastBiomes = fullBiomes;
+                        for(int i = 0; i < Palette.SIZE; i++) fullBiomes[i] = biomeData;
+
+                        biomeSections.put(y, fullBiomes);
+                        biomesLast = fullBiomes;
                     } else if(version != 127) {
                         final short[] indices = Palette.parseIndices(binaryStream, version);
-                        final int[] biomes = new int[binaryStream.getVarInt()];
-                        for(int i = 0; i < biomes.length; i++)
-                            biomes[i] = binaryStream.getVarInt();
+                        final int[] biomePalette = new int[binaryStream.getVarInt()];
+                        for(int i = 0; i < biomePalette.length; i++)
+                            biomePalette[i] = binaryStream.getVarInt();
 
-                        final int[] fullBiomes = new int[Palette.SIZE];
-                        for(int i = 0; i < Palette.SIZE; i++)
-                            fullBiomes[i] = biomes[indices[i]];
-                        lastBiomes = fullBiomes;
+                        for(int i = 0; i < Palette.SIZE; i++) fullBiomes[i] = biomePalette[indices[i]];
+
+                        biomeSections.put(y, fullBiomes);
+                        biomesLast = fullBiomes;
+                    } else {
+                        if(biomesLast == null) biomesLast = new int[Palette.SIZE];
+                        System.arraycopy(biomesLast, 0, fullBiomes, 0, Palette.SIZE);
+
+                        biomeSections.put(y, fullBiomes);
                     }
+
+                    biomeSections.put(y, fullBiomes);
                 }
 
-                if(lastBiomes != null) {
-                    final Biome[] biomes = new Biome[256];
-                    for(int x = 0; x < 16; x++)
-                        for(int z = 0; z < 16; z++)
-                            biomes[(x << 4) | z] = Biome.getBiome(lastBiomes[(x << 8) | (15 << 4) | z]);
-
-                    this.chunkBiomes.put(Vector2i.from(packet.getChunkX(), packet.getChunkZ()), biomes);
-                }
+                this.chunkBiomes.put(Vector2i.from(packet.getChunkX(), packet.getChunkZ()), biomeSections);
 
                 for(int y = 0; y <= packet.getSubChunkLimit(); y++)
                     subChunkRequestPacket.getPositionOffsets().add(Vector3i.
@@ -336,7 +338,11 @@ public class Client {
                 }
 
                 for(Map.Entry<Vector2i, List<SubChunkData>> entry : subChunks.entrySet()) {
-                    this.chunks.add(new ChunkData(this.world, entry.getKey().getX(), entry.getKey().getY(), entry.getValue()));
+                    final int chunkX = entry.getKey().getX();
+                    final int chunkZ = entry.getKey().getY();
+                    final Int2ObjectMap<int[]> biomes = this.chunkBiomes.remove(Vector2i.from(chunkX, chunkZ));
+
+                    this.chunks.add(new ChunkData(this.world, chunkX, chunkZ, entry.getValue(), biomes));
                 }
             }
         }

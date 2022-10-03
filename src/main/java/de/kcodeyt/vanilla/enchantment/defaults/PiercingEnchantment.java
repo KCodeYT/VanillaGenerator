@@ -49,5 +49,5 @@ public class PiercingEnchantment extends VanillaEnchantment {
     public boolean canApplyTogether(VanillaEnchantment enchantment) {
         return super.canApplyTogether(enchantment) && !(enchantment instanceof MultishotEnchantment);
     }
-    
+
 }

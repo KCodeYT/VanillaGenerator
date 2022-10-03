@@ -41,7 +41,7 @@ public class WeightedRandom {
         for(int j = weightedList.size(); i < j; ++i) {
             final T weightItem = weightedList.get(i);
             weight -= weightItem.weight;
-            if (weight < 0)
+            if(weight < 0)
                 return weightItem;
         }
 

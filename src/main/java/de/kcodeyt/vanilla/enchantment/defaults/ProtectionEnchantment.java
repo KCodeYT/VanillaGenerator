@@ -55,7 +55,7 @@ public class ProtectionEnchantment extends VanillaEnchantment {
     public boolean canApplyTogether(VanillaEnchantment enchantment) {
         return enchantment instanceof ProtectionEnchantment ?
                 this.protectionType != ((ProtectionEnchantment) enchantment).protectionType &&
-                        (this.protectionType == Type.FALL || ((ProtectionEnchantment) enchantment).protectionType == Type.FALL) :
+                (this.protectionType == Type.FALL || ((ProtectionEnchantment) enchantment).protectionType == Type.FALL) :
                 super.canApplyTogether(enchantment);
     }
 

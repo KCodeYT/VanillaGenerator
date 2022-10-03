@@ -30,10 +30,6 @@ import java.util.function.Consumer;
  */
 public class ChunkWaiter {
 
-    public static void waitFor(Position position, Consumer<FullChunk> chunkConsumer) {
-        new ChunkWaiter(position.getLevel(), position.getChunkX(), position.getChunkZ(), chunkConsumer);
-    }
-
     private final Runnable task;
 
     private ChunkWaiter(Level level, int x, int z, Consumer<FullChunk> chunkConsumer) {
@@ -46,6 +42,10 @@ public class ChunkWaiter {
         };
 
         this.scheduleDirectTask();
+    }
+
+    public static void waitFor(Position position, Consumer<FullChunk> chunkConsumer) {
+        new ChunkWaiter(position.getLevel(), position.getChunkX(), position.getChunkZ(), chunkConsumer);
     }
 
     private void scheduleTask() {

@@ -44,18 +44,18 @@ public class EnchantmentHelper {
     private static List<EnchantmentHolder> buildEnchantmentList(Random randomIn, Item item, int level, boolean allowTreasure) {
         final List<EnchantmentHolder> holders = new ArrayList<>();
         final int itemEnchantability = ItemEnchantment.getEnchantment(item).getEnchantability();
-        if (itemEnchantability <= 0)
+        if(itemEnchantability <= 0)
             return holders;
         level = level + 1 + randomIn.nextInt(itemEnchantability / 4 + 1) + randomIn.nextInt(itemEnchantability / 4 + 1);
         final float randomFloat = (randomIn.nextFloat() + randomIn.nextFloat() - 1.0F) * 0.15F;
         level = MathHelper.clamp(Math.round((float) level + (float) level * randomFloat), 1, Integer.MAX_VALUE);
         final List<EnchantmentHolder> availableHolders = getEnchantments(level, item, allowTreasure);
-        if (!availableHolders.isEmpty()) {
+        if(!availableHolders.isEmpty()) {
             holders.add(WeightedRandom.getRandomItem(randomIn, availableHolders));
             while(randomIn.nextInt(50) <= level) {
                 final VanillaEnchantment lastEntry = (holders.get(holders.size() - 1)).getEnchantment();
                 availableHolders.removeIf(enchantment1 -> !lastEntry.isCompatible(enchantment1.getEnchantment()));
-                if (availableHolders.isEmpty())
+                if(availableHolders.isEmpty())
                     break;
                 holders.add(WeightedRandom.getRandomItem(randomIn, availableHolders));
                 level /= 2;
@@ -71,9 +71,9 @@ public class EnchantmentHelper {
 
         for(Enchantments enchantments : Enchantments.values()) {
             final VanillaEnchantment enchantment = enchantments.getEnchantment();
-            if ((!enchantment.isTreasureEnchantment() || allowTreasure) && enchantment.canGenerateInLoot() && (enchantment.getType().canEnchant(item) || isBook)) {
+            if((!enchantment.isTreasureEnchantment() || allowTreasure) && enchantment.canGenerateInLoot() && (enchantment.getType().canEnchant(item) || isBook)) {
                 for(int i = enchantment.getMaxLevel(); i > enchantment.getMinLevel() - 1; --i) {
-                    if (level >= enchantment.getMinEnchantability(i) && level <= enchantment.getMaxEnchantability(i)) {
+                    if(level >= enchantment.getMinEnchantability(i) && level <= enchantment.getMaxEnchantability(i)) {
                         list.add(new EnchantmentHolder(enchantment, enchantments, i));
                         break;
                     }

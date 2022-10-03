@@ -27,6 +27,18 @@ import java.util.concurrent.ThreadLocalRandom;
  */
 public class LootTableNumber {
 
+    private final double min;
+    private final double max;
+
+    private LootTableNumber(double value) {
+        this(value, value);
+    }
+
+    private LootTableNumber(double min, double max) {
+        this.min = min;
+        this.max = max;
+    }
+
     public static LootTableNumber of(Object obj) {
         if(obj instanceof Double) return new LootTableNumber((double) obj);
 
@@ -52,18 +64,6 @@ public class LootTableNumber {
     @SuppressWarnings("unchecked")
     private static <T> T nonNull(T value) {
         return value == null ? (T) (Object) 0.0 : value;
-    }
-
-    private final double min;
-    private final double max;
-
-    private LootTableNumber(double value) {
-        this(value, value);
-    }
-
-    private LootTableNumber(double min, double max) {
-        this.min = min;
-        this.max = max;
     }
 
     public int getAsInt() {
