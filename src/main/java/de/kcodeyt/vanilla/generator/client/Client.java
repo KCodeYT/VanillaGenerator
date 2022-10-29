@@ -29,10 +29,7 @@ import com.nukkitx.protocol.bedrock.BedrockClient;
 import com.nukkitx.protocol.bedrock.BedrockClientSession;
 import com.nukkitx.protocol.bedrock.BedrockPacket;
 import com.nukkitx.protocol.bedrock.BedrockPacketType;
-import com.nukkitx.protocol.bedrock.data.AdventureSetting;
-import com.nukkitx.protocol.bedrock.data.PlayerActionType;
-import com.nukkitx.protocol.bedrock.data.SubChunkData;
-import com.nukkitx.protocol.bedrock.data.SubChunkRequestResult;
+import com.nukkitx.protocol.bedrock.data.*;
 import com.nukkitx.protocol.bedrock.data.command.CommandOriginData;
 import com.nukkitx.protocol.bedrock.data.command.CommandOriginType;
 import com.nukkitx.protocol.bedrock.packet.*;
@@ -273,10 +270,6 @@ public class Client {
 
             if(bedrockPacket.getPacketType() == BedrockPacketType.LEVEL_CHUNK) {
                 final LevelChunkPacket packet = (LevelChunkPacket) bedrockPacket;
-                final SubChunkRequestPacket subChunkRequestPacket = new SubChunkRequestPacket();
-                subChunkRequestPacket.setDimension(this.currentDimension);
-                final Vector3i networkPos = Vector3i.from(this.networkPos.getX(), this.networkPos.getY(), this.networkPos.getZ());
-                subChunkRequestPacket.setSubChunkPosition(networkPos);
 
                 final BinaryStream binaryStream = new BinaryStream(packet.getData());
                 final Int2ObjectMap<int[]> biomeSections = new Int2ObjectOpenHashMap<>();
@@ -315,14 +308,24 @@ public class Client {
                     biomeSections.put(y, fullBiomes);
                 }
 
-                this.chunkBiomes.put(Vector2i.from(packet.getChunkX(), packet.getChunkZ()), biomeSections);
+                if(packet.getSubChunkLimit() == -1) {
+                    this.chunks.add(new ChunkData(this.world, packet.getChunkX(), packet.getChunkZ(), Collections.emptyList(), biomeSections));
+                } else {
+                    this.chunkBiomes.put(Vector2i.from(packet.getChunkX(), packet.getChunkZ()), biomeSections);
 
-                for(int y = 0; y <= packet.getSubChunkLimit(); y++)
-                    subChunkRequestPacket.getPositionOffsets().add(Vector3i.
-                            from(packet.getChunkX(), y + this.world.getMinY(), packet.getChunkZ()).
-                            sub(networkPos));
+                    final SubChunkRequestPacket subChunkRequestPacket = new SubChunkRequestPacket();
+                    subChunkRequestPacket.setDimension(this.currentDimension);
+                    final Vector3i networkPos = Vector3i.from(this.networkPos.getX(), this.networkPos.getY(), this.networkPos.getZ());
+                    subChunkRequestPacket.setSubChunkPosition(networkPos);
 
-                this.send(subChunkRequestPacket);
+                    for(int y = 0; y <= packet.getSubChunkLimit(); y++)
+                        subChunkRequestPacket.getPositionOffsets().add(Vector3i.
+                                from(packet.getChunkX(), y + this.world.getMinY(), packet.getChunkZ()).
+                                sub(networkPos));
+
+                    this.send(subChunkRequestPacket);
+                }
+
                 return;
             }
 
@@ -421,11 +424,12 @@ public class Client {
             if(playState == PlayStatusPacket.Status.PLAYER_SPAWN) {
                 this.move(this.spawn);
 
-                final AdventureSettingsPacket adventureSettingsPacket = new AdventureSettingsPacket();
-                adventureSettingsPacket.getSettings().add(AdventureSetting.MAY_FLY);
-                adventureSettingsPacket.getSettings().add(AdventureSetting.FLYING);
-                adventureSettingsPacket.setUniqueEntityId(this.runtimeId);
-                this.send(adventureSettingsPacket);
+                final RequestAbilityPacket requestAbilityPacket = new RequestAbilityPacket();
+                requestAbilityPacket.setType(AbilityType.BOOLEAN);
+                requestAbilityPacket.setAbility(Ability.FLYING);
+                requestAbilityPacket.setBoolValue(true);
+
+                this.send(requestAbilityPacket);
 
                 this.move(new Location(this.currentPos.getX(), 255, this.currentPos.getZ(), 0f, 0f));
                 this.checkReadyState();

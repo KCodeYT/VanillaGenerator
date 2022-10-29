@@ -38,8 +38,8 @@ import java.util.zip.ZipInputStream;
  */
 class BedrockDedicatedServer {
 
-    private static final String WINDOWS_DIST = "https://minecraft.azureedge.net/bin-win/bedrock-server-1.19.30.04.zip";
-    private static final String LINUX_DIST = "https://minecraft.azureedge.net/bin-linux/bedrock-server-1.19.30.04.zip";
+    private static final String WINDOWS_DIST = "https://minecraft.azureedge.net/bin-win/bedrock-server-1.19.40.02.zip";
+    private static final String LINUX_DIST = "https://minecraft.azureedge.net/bin-linux/bedrock-server-1.19.40.02.zip";
 
     private static final File TEMP_DIRECTORY = new File("temp");
     private static final CompletableFuture<File> FUTURE = new CompletableFuture<>();
@@ -107,7 +107,7 @@ class BedrockDedicatedServer {
         return destFile;
     }
 
-    static File createTempServer(World world) {
+    static File createTempServer(World world, int serverPort) {
         final File tempServer = new File(TEMP_DIRECTORY, "server-" + world.getWorldName());
         if(!tempServer.exists()) {
             if(!tempServer.mkdirs()) return null;
@@ -146,19 +146,19 @@ class BedrockDedicatedServer {
             }).join();
         }
 
-        updateServerProperties(tempServer, world);
+        updateServerProperties(tempServer, world, serverPort);
 
         return tempServer;
     }
 
-    private static void updateServerProperties(File tempServer, World world) {
+    private static void updateServerProperties(File tempServer, World world, int serverPort) {
         final File serverProperties = new File(tempServer, "server.properties");
 
         final List<String> lines = new ArrayList<>();
         try(final BufferedReader bufferedReader = new BufferedReader(new FileReader(serverProperties))) {
             String line;
             while((line = bufferedReader.readLine()) != null) {
-                if(line.startsWith("server-port=")) line = "server-port=0";
+                if(line.startsWith("server-port=")) line = "server-port=" + serverPort;
                 if(line.startsWith("server-portv6=")) line = "server-portv6=0";
                 if(line.startsWith("online-mode=")) line = "online-mode=false";
                 if(line.startsWith("gamemode=")) line = "gamemode=creative";
