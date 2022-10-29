@@ -45,7 +45,7 @@ public class ChunkRequest {
         if(o == null || getClass() != o.getClass()) return false;
         ChunkRequest that = (ChunkRequest) o;
         return x == that.x &&
-                z == that.z;
+               z == that.z;
     }
 
     @Override

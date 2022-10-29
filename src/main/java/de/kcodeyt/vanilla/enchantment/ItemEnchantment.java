@@ -136,11 +136,11 @@ public enum ItemEnchantment {
         }
     };
 
+    private final int enchantability;
+
     public static ItemEnchantment getEnchantment(Item item) {
         return Arrays.stream(values()).filter(enchantment -> enchantment.isItem(item)).findAny().orElse(DEFAULT);
     }
-
-    private final int enchantability;
 
     public abstract boolean isItem(Item item);
 

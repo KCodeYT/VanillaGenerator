@@ -19,7 +19,6 @@ package de.kcodeyt.vanilla.generator.client;
 import cn.nukkit.Server;
 import cn.nukkit.level.Level;
 import cn.nukkit.level.Location;
-import cn.nukkit.level.biome.Biome;
 import cn.nukkit.math.BlockVector3;
 import cn.nukkit.utils.BinaryStream;
 import com.nukkitx.math.vector.Vector2i;
@@ -30,10 +29,7 @@ import com.nukkitx.protocol.bedrock.BedrockClient;
 import com.nukkitx.protocol.bedrock.BedrockClientSession;
 import com.nukkitx.protocol.bedrock.BedrockPacket;
 import com.nukkitx.protocol.bedrock.BedrockPacketType;
-import com.nukkitx.protocol.bedrock.data.AdventureSetting;
-import com.nukkitx.protocol.bedrock.data.PlayerActionType;
-import com.nukkitx.protocol.bedrock.data.SubChunkData;
-import com.nukkitx.protocol.bedrock.data.SubChunkRequestResult;
+import com.nukkitx.protocol.bedrock.data.*;
 import com.nukkitx.protocol.bedrock.data.command.CommandOriginData;
 import com.nukkitx.protocol.bedrock.data.command.CommandOriginType;
 import com.nukkitx.protocol.bedrock.packet.*;
@@ -50,6 +46,8 @@ import de.kcodeyt.vanilla.jwt.JwtToken;
 import de.kcodeyt.vanilla.util.Palette;
 import de.kcodeyt.vanilla.world.World;
 import io.netty.util.AsciiString;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import lombok.Getter;
 
 import javax.crypto.spec.SecretKeySpec;
@@ -79,7 +77,7 @@ public class Client {
     private final List<Consumer<CommandOutputPacket>> commandConsumers;
     private final Queue<ChunkRequest> queue;
     private final Set<ChunkData> chunks;
-    private final Map<Vector2i, Biome[]> chunkBiomes;
+    private final Map<Vector2i, Int2ObjectMap<int[]>> chunkBiomes;
     private BedrockClientSession clientSession;
     private PlayerConnectionState state = PlayerConnectionState.NETWORK_INIT;
     private Location spawn;
@@ -174,7 +172,6 @@ public class Client {
             if(this.current != null) {
                 final ChunkData chunkData = this.getChunk(this.current.getX(), this.current.getZ());
                 if(chunkData != null) {
-                    chunkData.setBiomes(this.chunkBiomes.remove(Vector2i.from(this.current.getX(), this.current.getZ())));
                     this.current.getFuture().resolve(chunkData);
                     this.chunks.remove(chunkData);
                     this.current = null;
@@ -188,7 +185,6 @@ public class Client {
             if(this.current != null) {
                 final ChunkData chunkData = this.getChunk(this.current.getX(), this.current.getZ());
                 if(chunkData != null) {
-                    chunkData.setBiomes(this.chunkBiomes.remove(Vector2i.from(this.current.getX(), this.current.getZ())));
                     this.current.getFuture().resolve(chunkData);
                     this.chunks.remove(chunkData);
                     this.current = null;
@@ -274,53 +270,62 @@ public class Client {
 
             if(bedrockPacket.getPacketType() == BedrockPacketType.LEVEL_CHUNK) {
                 final LevelChunkPacket packet = (LevelChunkPacket) bedrockPacket;
-                final SubChunkRequestPacket subChunkRequestPacket = new SubChunkRequestPacket();
-                subChunkRequestPacket.setDimension(this.currentDimension);
-                final Vector3i networkPos = Vector3i.from(this.networkPos.getX(), this.networkPos.getY(), this.networkPos.getZ());
-                subChunkRequestPacket.setSubChunkPosition(networkPos);
 
                 final BinaryStream binaryStream = new BinaryStream(packet.getData());
+                final Int2ObjectMap<int[]> biomeSections = new Int2ObjectOpenHashMap<>();
 
-                int[] lastBiomes = null;
+                int[] biomesLast = null;
                 for(int y = this.world.getMinY(); y < this.world.getMaxY(); y++) {
                     final int header = binaryStream.getByte();
                     final int version = header >> 1;
 
+                    final int[] fullBiomes = new int[Palette.SIZE];
+
                     if(version == 0) {
                         final int biomeData = binaryStream.getVarInt();
-                        final int[] fullBiomes = new int[Palette.SIZE];
 
-                        for(int i = 0; i < Palette.SIZE; i++)
-                            fullBiomes[i] = biomeData;
-                        lastBiomes = fullBiomes;
+                        for(int i = 0; i < Palette.SIZE; i++) fullBiomes[i] = biomeData;
+
+                        biomeSections.put(y, fullBiomes);
+                        biomesLast = fullBiomes;
                     } else if(version != 127) {
                         final short[] indices = Palette.parseIndices(binaryStream, version);
-                        final int[] biomes = new int[binaryStream.getVarInt()];
-                        for(int i = 0; i < biomes.length; i++)
-                            biomes[i] = binaryStream.getVarInt();
+                        final int[] biomePalette = new int[binaryStream.getVarInt()];
+                        for(int i = 0; i < biomePalette.length; i++)
+                            biomePalette[i] = binaryStream.getVarInt();
 
-                        final int[] fullBiomes = new int[Palette.SIZE];
-                        for(int i = 0; i < Palette.SIZE; i++)
-                            fullBiomes[i] = biomes[indices[i]];
-                        lastBiomes = fullBiomes;
+                        for(int i = 0; i < Palette.SIZE; i++) fullBiomes[i] = biomePalette[indices[i]];
+
+                        biomeSections.put(y, fullBiomes);
+                        biomesLast = fullBiomes;
+                    } else {
+                        if(biomesLast == null) biomesLast = new int[Palette.SIZE];
+                        System.arraycopy(biomesLast, 0, fullBiomes, 0, Palette.SIZE);
+
+                        biomeSections.put(y, fullBiomes);
                     }
+
+                    biomeSections.put(y, fullBiomes);
                 }
 
-                if(lastBiomes != null) {
-                    final Biome[] biomes = new Biome[256];
-                    for(int x = 0; x < 16; x++)
-                        for(int z = 0; z < 16; z++)
-                            biomes[(x << 4) | z] = Biome.getBiome(lastBiomes[(x << 8) | (15 << 4) | z]);
+                if(packet.getSubChunkLimit() == -1) {
+                    this.chunks.add(new ChunkData(this.world, packet.getChunkX(), packet.getChunkZ(), Collections.emptyList(), biomeSections));
+                } else {
+                    this.chunkBiomes.put(Vector2i.from(packet.getChunkX(), packet.getChunkZ()), biomeSections);
 
-                    this.chunkBiomes.put(Vector2i.from(packet.getChunkX(), packet.getChunkZ()), biomes);
+                    final SubChunkRequestPacket subChunkRequestPacket = new SubChunkRequestPacket();
+                    subChunkRequestPacket.setDimension(this.currentDimension);
+                    final Vector3i networkPos = Vector3i.from(this.networkPos.getX(), this.networkPos.getY(), this.networkPos.getZ());
+                    subChunkRequestPacket.setSubChunkPosition(networkPos);
+
+                    for(int y = 0; y <= packet.getSubChunkLimit(); y++)
+                        subChunkRequestPacket.getPositionOffsets().add(Vector3i.
+                                from(packet.getChunkX(), y + this.world.getMinY(), packet.getChunkZ()).
+                                sub(networkPos));
+
+                    this.send(subChunkRequestPacket);
                 }
 
-                for(int y = 0; y <= packet.getSubChunkLimit(); y++)
-                    subChunkRequestPacket.getPositionOffsets().add(Vector3i.
-                            from(packet.getChunkX(), y + this.world.getMinY(), packet.getChunkZ()).
-                            sub(networkPos));
-
-                this.send(subChunkRequestPacket);
                 return;
             }
 
@@ -336,7 +341,11 @@ public class Client {
                 }
 
                 for(Map.Entry<Vector2i, List<SubChunkData>> entry : subChunks.entrySet()) {
-                    this.chunks.add(new ChunkData(this.world, entry.getKey().getX(), entry.getKey().getY(), entry.getValue()));
+                    final int chunkX = entry.getKey().getX();
+                    final int chunkZ = entry.getKey().getY();
+                    final Int2ObjectMap<int[]> biomes = this.chunkBiomes.remove(Vector2i.from(chunkX, chunkZ));
+
+                    this.chunks.add(new ChunkData(this.world, chunkX, chunkZ, entry.getValue(), biomes));
                 }
             }
         }
@@ -415,11 +424,12 @@ public class Client {
             if(playState == PlayStatusPacket.Status.PLAYER_SPAWN) {
                 this.move(this.spawn);
 
-                final AdventureSettingsPacket adventureSettingsPacket = new AdventureSettingsPacket();
-                adventureSettingsPacket.getSettings().add(AdventureSetting.MAY_FLY);
-                adventureSettingsPacket.getSettings().add(AdventureSetting.FLYING);
-                adventureSettingsPacket.setUniqueEntityId(this.runtimeId);
-                this.send(adventureSettingsPacket);
+                final RequestAbilityPacket requestAbilityPacket = new RequestAbilityPacket();
+                requestAbilityPacket.setType(AbilityType.BOOLEAN);
+                requestAbilityPacket.setAbility(Ability.FLYING);
+                requestAbilityPacket.setBoolValue(true);
+
+                this.send(requestAbilityPacket);
 
                 this.move(new Location(this.currentPos.getX(), 255, this.currentPos.getZ(), 0f, 0f));
                 this.checkReadyState();

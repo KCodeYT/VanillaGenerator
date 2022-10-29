@@ -44,8 +44,8 @@ public class EnchantRandomlyFunction implements LootTableFunction<Item> {
     public Item invoke(Item item, Random random) {
         final List<Enchantments> availableEnchantments = Arrays.stream(Enchantments.values()).filter(enchantments ->
                 (item.getId() == ItemID.BOOK || enchantments.getEnchantment().getType().canEnchant(item)) &&
-                        enchantments.getEnchantment().canGenerateInLoot() &&
-                        (!enchantments.getEnchantment().isTreasureEnchantment() || this.treasure)).toList();
+                enchantments.getEnchantment().canGenerateInLoot() &&
+                (!enchantments.getEnchantment().isTreasureEnchantment() || this.treasure)).toList();
 
         final Item result = item.getId() == ItemID.BOOK ? Item.get(Item.ENCHANT_BOOK) : item;
         final Enchantments enchantments = availableEnchantments.get(random.nextInt(availableEnchantments.size()));

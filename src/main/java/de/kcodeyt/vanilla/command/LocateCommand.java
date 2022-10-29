@@ -39,18 +39,13 @@ public class LocateCommand extends Command {
         this.setPermission("vanilla.command.locate");
         this.commandParameters.clear();
         this.commandParameters.put("LocateArgs0", new CommandParameter[]{
-                CommandParameter.newEnum("feature", false, new CommandEnum("Structure", LocateSubcommandStructureEnum.names())),
+                CommandParameter.newEnum("subcommand", false, new CommandEnum("LocateSubcommandStructure", "structure")),
+                CommandParameter.newEnum("structure", false, new CommandEnum("Structure", LocateSubcommandStructureEnum.names())),
                 CommandParameter.newEnum("useNewChunksOnly", true, new CommandEnum("Boolean", "true", "false"))
         });
         this.commandParameters.put("LocateArgs1", new CommandParameter[]{
-                CommandParameter.newEnum("subcommand", false, new CommandEnum("LocateSubcommandStructure", "structure")),
-                CommandParameter.newEnum("feature", false, new CommandEnum("Structure", LocateSubcommandStructureEnum.names())),
-                CommandParameter.newEnum("useNewChunksOnly", true, new CommandEnum("Boolean", "true", "false"))
-        });
-        this.commandParameters.put("LocateArgs2", new CommandParameter[]{
                 CommandParameter.newEnum("subcommand", false, new CommandEnum("LocateSubcommandBiome", "biome")),
-                CommandParameter.newEnum("feature", false, new CommandEnum("Structure", SubcommandBiomeEnum.names())),
-                CommandParameter.newEnum("useNewChunksOnly", true, new CommandEnum("Boolean", "true", "false"))
+                CommandParameter.newEnum("biome", false, new CommandEnum("Biome", SubcommandBiomeEnum.names()))
         });
     }
 

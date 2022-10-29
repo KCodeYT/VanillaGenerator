@@ -23,6 +23,7 @@ import cn.nukkit.event.Listener;
 import cn.nukkit.event.player.PlayerJoinEvent;
 import cn.nukkit.level.DimensionData;
 import cn.nukkit.level.Level;
+import cn.nukkit.level.biome.Biome;
 import cn.nukkit.level.generator.Generator;
 import cn.nukkit.plugin.PluginBase;
 import cn.nukkit.utils.Config;
@@ -55,6 +56,9 @@ import java.util.concurrent.ScheduledExecutorService;
 public class VanillaGeneratorPlugin extends PluginBase implements Listener {
 
     public static final Skin STEVE_SKIN;
+    private static final List<VanillaServer> VANILLA_SERVERS = new CopyOnWriteArrayList<>();
+    @Getter
+    private static VanillaGeneratorPlugin instance;
 
     static {
         Skin skin;
@@ -72,10 +76,6 @@ public class VanillaGeneratorPlugin extends PluginBase implements Listener {
 
         STEVE_SKIN = skin;
     }
-
-    private static final List<VanillaServer> VANILLA_SERVERS = new CopyOnWriteArrayList<>();
-    @Getter
-    private static VanillaGeneratorPlugin instance;
 
     @Getter
     private ScheduledExecutorService executorService;
@@ -176,12 +176,17 @@ public class VanillaGeneratorPlugin extends PluginBase implements Listener {
             this.getServer().getScheduler().scheduleRepeatingTask(null, () -> {
                 if(!player.isOnline()) return;
 
+                final int playerY = Math.max(player.getLevel().getMinHeight(), Math.min(player.getLevel().getMaxHeight(), player.getFloorY()));
+                final int biomeId = player.getLevel().getBiomeId(player.getFloorX(), playerY, player.getFloorZ());
+
                 final float tps = this.getServer().getTicksPerSecond();
                 final float avgTps = this.getServer().getTicksPerSecondAverage();
                 final String tpsColor = tps < 0 ? "§5" : tps < 4 ? "§4" : tps < 8 ? "§c" : tps < 16 ? "§6" : "§a";
                 final String avgTpsColor = avgTps < 0 ? "§5" : avgTps < 4 ? "§4" : avgTps < 8 ? "§c" : avgTps < 16 ? "§6" : "§a";
+                final String currentBiome = Biome.getBiomeNameFromId(biomeId);
                 player.sendActionBar("TPS: " + tpsColor + tps + "§f Average TPS: " + avgTpsColor + avgTps + "\n" +
-                        "§fChunk: " + player.getChunkX() + ":" + player.getChunkZ());
+                                     "§fChunk: " + player.getChunkX() + ":" + player.getChunkZ() + "\n" +
+                                     "§fBiome: " + currentBiome);
             }, 5, true);
         }
     }

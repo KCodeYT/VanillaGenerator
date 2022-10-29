@@ -18,7 +18,6 @@ package de.kcodeyt.vanilla.generator.chunk;
 
 import cn.nukkit.blockstate.BlockState;
 import cn.nukkit.blockstate.BlockStateRegistry;
-import cn.nukkit.level.biome.Biome;
 import cn.nukkit.level.format.anvil.Chunk;
 import cn.nukkit.level.format.generic.BaseFullChunk;
 import cn.nukkit.nbt.NBTIO;
@@ -31,10 +30,10 @@ import de.kcodeyt.vanilla.generator.server.VanillaServer;
 import de.kcodeyt.vanilla.util.Palette;
 import de.kcodeyt.vanilla.world.BlockEntityData;
 import de.kcodeyt.vanilla.world.World;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.io.FastByteArrayInputStream;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
-import lombok.Setter;
 
 import java.nio.ByteOrder;
 import java.util.List;
@@ -51,8 +50,7 @@ public class ChunkData {
     private final int x;
     private final int z;
     private final List<SubChunkData> data;
-    @Setter
-    private Biome[] biomes = null;
+    private final Int2ObjectMap<int[]> biomes;
 
     public void build(VanillaServer vanillaServer, BaseFullChunk fullChunk) {
         try {
@@ -63,9 +61,12 @@ public class ChunkData {
             anvilChunk.setGenerated();
             anvilChunk.setPopulated();
 
-            if(this.biomes != null) {
-                for(int index = 0; index < 256; index++)
-                    anvilChunk.setBiome((index >> 4) & 0xF, index & 0xF, this.biomes[index]);
+            for(Int2ObjectMap.Entry<int[]> entry : this.biomes.int2ObjectEntrySet()) {
+                final int[] biomes = entry.getValue();
+                final int subY = entry.getIntKey();
+
+                for(int i = 0; i < biomes.length; i++)
+                    fullChunk.setBiomeId((i >> 8) & 0xF, (subY << 4) + (i & 0xF), (i >> 4) & 0xF, biomes[i]);
             }
 
             for(SubChunkData chunkData : this.data) {

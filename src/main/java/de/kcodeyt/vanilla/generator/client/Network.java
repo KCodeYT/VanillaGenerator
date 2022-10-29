@@ -17,7 +17,7 @@
 package de.kcodeyt.vanilla.generator.client;
 
 import com.nukkitx.protocol.bedrock.BedrockPacketCodec;
-import com.nukkitx.protocol.bedrock.v554.Bedrock_v554;
+import com.nukkitx.protocol.bedrock.v557.Bedrock_v557;
 
 /**
  * @author Kevims KCodeYT
@@ -25,6 +25,6 @@ import com.nukkitx.protocol.bedrock.v554.Bedrock_v554;
  */
 public class Network {
 
-    public static final BedrockPacketCodec CODEC = Bedrock_v554.V554_CODEC;
+    public static final BedrockPacketCodec CODEC = Bedrock_v557.V557_CODEC;
 
 }

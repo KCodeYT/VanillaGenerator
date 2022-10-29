@@ -32,7 +32,9 @@ import org.apache.commons.lang3.SystemUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.DatagramSocket;
 import java.net.InetSocketAddress;
+import java.net.SocketException;
 import java.util.List;
 import java.util.Queue;
 import java.util.UUID;
@@ -52,7 +54,8 @@ public class VanillaServer {
     private final Queue<ChunkRequest> queue = new ConcurrentLinkedQueue<>();
     private final List<Client> clients = new CopyOnWriteArrayList<>();
     private final AtomicBoolean manualClose = new AtomicBoolean(false);
-    private int port;
+    private final int port;
+
     private ProcessWrapper processWrapper;
     @Getter
     private LootTableManager lootTableManager;
@@ -62,7 +65,9 @@ public class VanillaServer {
     public VanillaServer(World world) {
         this.startupTime = System.currentTimeMillis();
         this.world = world;
-        final File tempServer = BedrockDedicatedServer.createTempServer(this.world);
+        this.port = findFreePort();
+
+        final File tempServer = BedrockDedicatedServer.createTempServer(this.world, this.port);
         if(tempServer == null) return;
 
         final String tempPath = tempServer.getAbsolutePath() + File.separator;
@@ -77,9 +82,7 @@ public class VanillaServer {
         try {
             final long startTime = System.currentTimeMillis();
             this.processWrapper = new ProcessWrapper(builder, line -> {
-                if(line.contains("IPv4 supported, port:") && this.firstSeen) {
-                    String[] split = line.split(" ");
-                    this.port = Integer.parseInt(split[split.length - 1]);
+                if(line.contains("Server started.") && this.firstSeen) {
                     VanillaGeneratorPlugin.getInstance().getLogger().info("Server " + this.world.getWorldName() + " bound to " + this.port + " (Started in " + (Math.round(((System.currentTimeMillis() - startTime) / 1000f) * 100) / 100f) + "s!)");
                     this.firstSeen = false;
 
@@ -147,6 +150,14 @@ public class VanillaServer {
         for(Client client : this.clients)
             client.disconnect("Closing chunk generator");
         this.processWrapper.kill();
+    }
+
+    private static int findFreePort() {
+        try(final DatagramSocket datagramSocket = new DatagramSocket()) {
+            return datagramSocket.getLocalPort();
+        } catch(SocketException e) {
+            throw new RuntimeException(e);
+        }
     }
 
 }

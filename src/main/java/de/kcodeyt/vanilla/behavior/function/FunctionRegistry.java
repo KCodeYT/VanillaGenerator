@@ -51,7 +51,8 @@ public class FunctionRegistry {
                     final Constructor<? extends LootTableFunction<Item>> constructor = entry.getValue().getConstructor(Map.class);
                     constructor.setAccessible(true);
                     return constructor.newInstance(args);
-                } catch(InstantiationException | NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+                } catch(InstantiationException | NoSuchMethodException | IllegalAccessException |
+                        InvocationTargetException e) {
                     VanillaGeneratorPlugin.getInstance().getLogger().error("Could not initialize function!", e);
                 }
             }
