@@ -21,6 +21,7 @@ import cn.nukkit.level.Level;
 import cn.nukkit.level.Location;
 import cn.nukkit.math.BlockVector3;
 import cn.nukkit.utils.BinaryStream;
+import com.nimbusds.jose.JOSEException;
 import com.nukkitx.math.vector.Vector2i;
 import com.nukkitx.math.vector.Vector3f;
 import com.nukkitx.math.vector.Vector3i;
@@ -218,22 +219,17 @@ public class Client {
 
     private void login() {
         if(this.state == PlayerConnectionState.HANDSHAKE) {
-            this.state = PlayerConnectionState.LOGIN;
+            try {
+                final LoginPacket loginPacket = new LoginPacket();
+                loginPacket.setProtocolVersion(Network.CODEC.getProtocolVersion());
+                loginPacket.setChainData(AsciiString.of(MojangLoginForger.forgeLoginChain(this.keyPair, this.loginData)));
+                loginPacket.setSkinData(AsciiString.of(MojangLoginForger.forge(this.keyPair, this.loginData.buildSkinData(ThreadLocalRandom.current(), this.serverAddress))));
+                this.sendImmediately(loginPacket);
 
-            final MojangLoginForger mojangLoginForger = new MojangLoginForger();
-            mojangLoginForger.setPublicKey(this.keyPair.getPublic());
-            mojangLoginForger.setUsername(this.loginData.getName());
-            mojangLoginForger.setUuid(this.loginData.getUniqueId());
-            mojangLoginForger.setXuid(this.loginData.getXuid());
-            mojangLoginForger.setSkinData(this.loginData.buildSkinData(ThreadLocalRandom.current(), this.serverAddress));
-
-            final String jwt = "{\"chain\":[\"" + mojangLoginForger.forge(this.keyPair.getPrivate()) + "\"]}";
-            final String skin = mojangLoginForger.forgeSkin(this.keyPair.getPrivate());
-            final LoginPacket loginPacket = new LoginPacket();
-            loginPacket.setProtocolVersion(Network.CODEC.getProtocolVersion());
-            loginPacket.setChainData(new AsciiString(jwt));
-            loginPacket.setSkinData(new AsciiString(skin));
-            this.sendImmediately(loginPacket);
+                this.state = PlayerConnectionState.LOGIN;
+            } catch(JOSEException e) {
+                this.world.getPlugin().getLogger().error("Could not build login packet for client!", e);
+            }
         }
     }
 
