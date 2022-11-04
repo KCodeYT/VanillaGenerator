@@ -19,7 +19,6 @@ package de.kcodeyt.vanilla.generator.server;
 import cn.nukkit.level.Level;
 import cn.nukkit.level.format.generic.BaseFullChunk;
 import de.kcodeyt.vanilla.VanillaGeneratorPlugin;
-import de.kcodeyt.vanilla.async.Future;
 import de.kcodeyt.vanilla.behavior.LootTableManager;
 import de.kcodeyt.vanilla.generator.chunk.ChunkRequest;
 import de.kcodeyt.vanilla.generator.client.Client;
@@ -131,13 +130,13 @@ public class VanillaServer {
     }
 
     public void requestChunk(BaseFullChunk fullChunk) {
-        final ChunkRequest request = new ChunkRequest(fullChunk.getX(), fullChunk.getZ(), new Future<>());
+        final ChunkRequest request = new ChunkRequest(fullChunk.getX(), fullChunk.getZ(), new CompletableFuture<>());
         this.queue.offer(request);
 
         try {
-            request.getFuture().get().build(this, fullChunk);
-        } catch(InterruptedException | ExecutionException e) {
-            e.printStackTrace();
+            request.getFuture().join().build(this, fullChunk);
+        } catch(Exception e) {
+            this.world.getPlugin().getLogger().error("Error whilst generating chunk [" + fullChunk.getX() + "," + fullChunk.getZ() + "]", e);
         }
     }
 

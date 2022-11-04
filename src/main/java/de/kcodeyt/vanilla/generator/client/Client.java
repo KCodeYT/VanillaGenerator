@@ -172,7 +172,7 @@ public class Client {
             if(this.current != null) {
                 final ChunkData chunkData = this.getChunk(this.current.getX(), this.current.getZ());
                 if(chunkData != null) {
-                    this.current.getFuture().resolve(chunkData);
+                    this.current.getFuture().complete(chunkData);
                     this.chunks.remove(chunkData);
                     this.current = null;
                 } else {
@@ -185,7 +185,7 @@ public class Client {
             if(this.current != null) {
                 final ChunkData chunkData = this.getChunk(this.current.getX(), this.current.getZ());
                 if(chunkData != null) {
-                    this.current.getFuture().resolve(chunkData);
+                    this.current.getFuture().complete(chunkData);
                     this.chunks.remove(chunkData);
                     this.current = null;
                 } else {
