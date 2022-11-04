@@ -22,6 +22,7 @@ import cn.nukkit.level.Location;
 import cn.nukkit.math.BlockVector3;
 import cn.nukkit.utils.BinaryStream;
 import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jwt.SignedJWT;
 import com.nukkitx.math.vector.Vector2i;
 import com.nukkitx.math.vector.Vector3f;
 import com.nukkitx.math.vector.Vector3i;
@@ -41,8 +42,6 @@ import de.kcodeyt.vanilla.generator.chunk.ChunkRequest;
 import de.kcodeyt.vanilla.generator.client.clientdata.LoginData;
 import de.kcodeyt.vanilla.generator.network.PlayerConnectionState;
 import de.kcodeyt.vanilla.generator.server.VanillaServer;
-import de.kcodeyt.vanilla.jwt.JwtSignatureException;
-import de.kcodeyt.vanilla.jwt.JwtToken;
 import de.kcodeyt.vanilla.util.Palette;
 import de.kcodeyt.vanilla.world.World;
 import io.netty.util.AsciiString;
@@ -57,6 +56,7 @@ import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
 import java.security.interfaces.ECPublicKey;
 import java.security.spec.InvalidKeySpecException;
+import java.text.ParseException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
@@ -358,15 +358,14 @@ public class Client {
                 final ServerToClientHandshakePacket packetEncryptionRequest = (ServerToClientHandshakePacket) bedrockPacket;
 
                 try {
-                    final JwtToken token = JwtToken.parse(packetEncryptionRequest.getJwt());
-                    final String serverKeyBase64 = token.getHeader().getProperty(String.class, "x5u");
-                    final ECPublicKey serverKey = EncryptionUtils.generateKey(serverKeyBase64);
+                    final SignedJWT signedJWT = SignedJWT.parse(packetEncryptionRequest.getJwt());
+                    final ECPublicKey serverKey = EncryptionUtils.generateKey(signedJWT.getHeader().getX509CertURL().toASCIIString());
 
-                    if(token.validateSignature(serverKey)) {
+                    if(EncryptionUtils.verifyJwt(signedJWT, serverKey)) {
                         final SecretKey sharedSecretKey = EncryptionUtils.getSecretKey(
                                 this.keyPair.getPrivate(),
                                 serverKey,
-                                Base64.getDecoder().decode(token.getClaim(String.class, "salt"))
+                                Base64.getDecoder().decode(signedJWT.getJWTClaimsSet().getStringClaim("salt"))
                         );
                         this.clientSession.enableEncryption(sharedSecretKey);
 
@@ -379,7 +378,7 @@ public class Client {
                     }
 
                     this.disconnect("Invalid jwt signature");
-                } catch(JwtSignatureException | NoSuchAlgorithmException | InvalidKeySpecException |
+                } catch(ParseException | JOSEException | NoSuchAlgorithmException | InvalidKeySpecException |
                         InvalidKeyException e) {
                     throw new RuntimeException(e);
                 }
