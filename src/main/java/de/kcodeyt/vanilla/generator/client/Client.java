@@ -47,6 +47,9 @@ import de.kcodeyt.vanilla.world.World;
 import io.netty.util.AsciiString;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import lombok.Getter;
 
 import javax.crypto.SecretKey;
@@ -78,7 +81,7 @@ public class Client {
     private final Level level;
     private final List<Consumer<CommandOutputPacket>> commandConsumers;
     private final Queue<ChunkRequest> queue;
-    private final Set<ChunkData> chunks;
+    private final Long2ObjectMap<ChunkData> chunks;
     private final Map<Vector2i, Int2ObjectMap<int[]>> chunkBiomes;
     private BedrockClientSession clientSession;
     private PlayerConnectionState state = PlayerConnectionState.NETWORK_INIT;
@@ -105,7 +108,7 @@ public class Client {
         this.executorService = Executors.newSingleThreadScheduledExecutor();
         this.queue = queue;
         this.commandConsumers = new ArrayList<>();
-        this.chunks = new CopyOnWriteArraySet<>();
+        this.chunks = Long2ObjectMaps.synchronize(new Long2ObjectOpenHashMap<>());
         this.chunkBiomes = new ConcurrentHashMap<>();
         this.bedrockClient = new BedrockClient(new InetSocketAddress("0.0.0.0", 0));
         this.bedrockClient.setRakNetVersion(Network.CODEC.getRaknetProtocolVersion());
@@ -161,14 +164,6 @@ public class Client {
         this.clientSession.sendPacket(packet);
     }
 
-    private ChunkData getChunk(int chunkX, int chunkZ) {
-        for(ChunkData chunkData : this.chunks) {
-            if(chunkData.getX() == chunkX && chunkData.getZ() == chunkZ)
-                return chunkData;
-        }
-        return null;
-    }
-
     private void update() {
         while(this.handleCurrentRequest())
             this.current = this.queue.poll();
@@ -177,16 +172,18 @@ public class Client {
     private boolean handleCurrentRequest() {
         if(this.current == null) return true;
 
-        final ChunkData chunkData = this.getChunk(this.current.getX(), this.current.getZ());
-        if(chunkData != null) {
-            this.current.getFuture().complete(chunkData);
-            this.chunks.remove(chunkData);
-            this.current = null;
-            return true;
+        final long chunkHash = Level.chunkHash(this.current.getX(), this.current.getZ());
+        final ChunkData chunkData = this.chunks.get(chunkHash);
+
+        if(chunkData == null) {
+            this.moveToChunk(this.current);
+            return false;
         }
 
-        this.moveToChunk(this.current);
-        return false;
+        this.current.getFuture().complete(chunkData);
+        this.chunks.remove(chunkHash);
+        this.current = null;
+        return true;
     }
 
     private void internalClose() {
@@ -297,7 +294,7 @@ public class Client {
                 }
 
                 if(packet.getSubChunkLimit() == -1) {
-                    this.chunks.add(new ChunkData(this.world, packet.getChunkX(), packet.getChunkZ(), Collections.emptyList(), biomeSections));
+                    this.chunks.put(Level.chunkHash(packet.getChunkX(), packet.getChunkZ()), new ChunkData(this.world, packet.getChunkX(), packet.getChunkZ(), Collections.emptyList(), biomeSections));
                 } else {
                     this.chunkBiomes.put(Vector2i.from(packet.getChunkX(), packet.getChunkZ()), biomeSections);
 
@@ -333,7 +330,7 @@ public class Client {
                     final int chunkZ = entry.getKey().getY();
                     final Int2ObjectMap<int[]> biomes = this.chunkBiomes.remove(Vector2i.from(chunkX, chunkZ));
 
-                    this.chunks.add(new ChunkData(this.world, chunkX, chunkZ, entry.getValue(), biomes));
+                    this.chunks.put(Level.chunkHash(chunkX, chunkZ), new ChunkData(this.world, chunkX, chunkZ, entry.getValue(), biomes));
                 }
             }
         }
