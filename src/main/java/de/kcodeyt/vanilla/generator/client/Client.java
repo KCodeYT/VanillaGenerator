@@ -170,32 +170,23 @@ public class Client {
     }
 
     private void update() {
-        while(true) {
-            if(this.current != null) {
-                final ChunkData chunkData = this.getChunk(this.current.getX(), this.current.getZ());
-                if(chunkData != null) {
-                    this.current.getFuture().complete(chunkData);
-                    this.chunks.remove(chunkData);
-                    this.current = null;
-                } else {
-                    this.moveToChunk(this.current);
-                    return;
-                }
-            }
-
+        while(this.handleCurrentRequest())
             this.current = this.queue.poll();
-            if(this.current != null) {
-                final ChunkData chunkData = this.getChunk(this.current.getX(), this.current.getZ());
-                if(chunkData != null) {
-                    this.current.getFuture().complete(chunkData);
-                    this.chunks.remove(chunkData);
-                    this.current = null;
-                } else {
-                    this.moveToChunk(this.current);
-                    return;
-                }
-            }
+    }
+
+    private boolean handleCurrentRequest() {
+        if(this.current == null) return true;
+
+        final ChunkData chunkData = this.getChunk(this.current.getX(), this.current.getZ());
+        if(chunkData != null) {
+            this.current.getFuture().complete(chunkData);
+            this.chunks.remove(chunkData);
+            this.current = null;
+            return true;
         }
+
+        this.moveToChunk(this.current);
+        return false;
     }
 
     private void internalClose() {
