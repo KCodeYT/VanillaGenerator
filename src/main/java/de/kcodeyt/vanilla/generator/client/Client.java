@@ -33,12 +33,11 @@ import com.nukkitx.protocol.bedrock.data.*;
 import com.nukkitx.protocol.bedrock.data.command.CommandOriginData;
 import com.nukkitx.protocol.bedrock.data.command.CommandOriginType;
 import com.nukkitx.protocol.bedrock.packet.*;
+import com.nukkitx.protocol.bedrock.util.EncryptionUtils;
 import de.kcodeyt.vanilla.VanillaGeneratorPlugin;
 import de.kcodeyt.vanilla.generator.chunk.ChunkData;
 import de.kcodeyt.vanilla.generator.chunk.ChunkRequest;
 import de.kcodeyt.vanilla.generator.client.clientdata.LoginData;
-import de.kcodeyt.vanilla.generator.network.EncryptionHandler;
-import de.kcodeyt.vanilla.generator.network.EncryptionKeyFactory;
 import de.kcodeyt.vanilla.generator.network.PlayerConnectionState;
 import de.kcodeyt.vanilla.generator.server.VanillaServer;
 import de.kcodeyt.vanilla.jwt.JwtSignatureException;
@@ -50,11 +49,13 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import lombok.Getter;
 
-import javax.crypto.spec.SecretKeySpec;
+import javax.crypto.SecretKey;
 import java.net.InetSocketAddress;
+import java.security.InvalidKeyException;
 import java.security.KeyPair;
 import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
+import java.security.interfaces.ECPublicKey;
+import java.security.spec.InvalidKeySpecException;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
@@ -97,7 +98,7 @@ public class Client {
     public Client(VanillaServer vanillaServer, LoginData loginData, Queue<ChunkRequest> queue) {
         this.vanillaServer = vanillaServer;
         this.loginData = loginData;
-        this.keyPair = EncryptionKeyFactory.INSTANCE.createKeyPair();
+        this.keyPair = EncryptionUtils.createKeyPair();
         this.world = vanillaServer.getWorld();
         this.level = this.world.getLevel();
         this.executorService = Executors.newSingleThreadScheduledExecutor();
@@ -362,13 +363,16 @@ public class Client {
 
                 try {
                     final JwtToken token = JwtToken.parse(packetEncryptionRequest.getJwt());
-                    final String publicKeyB64 = token.getHeader().getProperty(String.class, "x5u");
-                    final PublicKey publicKey = EncryptionKeyFactory.INSTANCE.createPublicKey(publicKeyB64);
+                    final String serverKeyBase64 = token.getHeader().getProperty(String.class, "x5u");
+                    final ECPublicKey serverKey = EncryptionUtils.generateKey(serverKeyBase64);
 
-                    if(token.validateSignature(publicKey)) {
-                        final EncryptionHandler encryptionHandler = new EncryptionHandler(this.keyPair, publicKey);
-                        if(encryptionHandler.beginServersideEncryption(Base64.getDecoder().decode(token.getClaim(String.class, "salt"))))
-                            this.clientSession.enableEncryption(new SecretKeySpec(encryptionHandler.getServerKey(), "AES"));
+                    if(token.validateSignature(serverKey)) {
+                        final SecretKey sharedSecretKey = EncryptionUtils.getSecretKey(
+                                this.keyPair.getPrivate(),
+                                serverKey,
+                                Base64.getDecoder().decode(token.getClaim(String.class, "salt"))
+                        );
+                        this.clientSession.enableEncryption(sharedSecretKey);
 
                         this.send(new ClientToServerHandshakePacket());
 
@@ -379,9 +383,9 @@ public class Client {
                     }
 
                     this.disconnect("Invalid jwt signature");
-                } catch(JwtSignatureException | NoSuchAlgorithmException e) {
-                    System.out.println("Invalid JWT signature from server: ");
-                    e.printStackTrace();
+                } catch(JwtSignatureException | NoSuchAlgorithmException | InvalidKeySpecException |
+                        InvalidKeyException e) {
+                    throw new RuntimeException(e);
                 }
             } else if(bedrockPacket.getPacketType() == BedrockPacketType.RESOURCE_PACKS_INFO) {
                 this.state = PlayerConnectionState.RESOURCE_PACK;

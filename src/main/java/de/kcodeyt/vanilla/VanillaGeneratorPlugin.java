@@ -35,7 +35,6 @@ import de.kcodeyt.vanilla.generator.VanillaNether;
 import de.kcodeyt.vanilla.generator.VanillaOverworld;
 import de.kcodeyt.vanilla.generator.VanillaTheEnd;
 import de.kcodeyt.vanilla.generator.client.clientdata.Skin;
-import de.kcodeyt.vanilla.generator.network.EncryptionKeyFactory;
 import de.kcodeyt.vanilla.generator.server.VanillaServer;
 import de.kcodeyt.vanilla.world.World;
 import lombok.Getter;
@@ -107,13 +106,6 @@ public class VanillaGeneratorPlugin extends PluginBase implements Listener {
 
     @Override
     public void onLoad() {
-        final List<Exception> initExceptions = EncryptionKeyFactory.INSTANCE.getInitExceptions();
-        if(!initExceptions.isEmpty()) {
-            this.getLogger().error("Could not initialize encryption factory!");
-            for(Exception exception : initExceptions) this.getLogger().error(exception.getMessage(), exception);
-            return;
-        }
-
         instance = this;
 
         this.executorService = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(4));
