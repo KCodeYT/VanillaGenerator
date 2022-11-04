@@ -176,7 +176,7 @@ public class VanillaGeneratorPlugin extends PluginBase implements Listener {
             this.getServer().getScheduler().scheduleRepeatingTask(null, () -> {
                 if(!player.isOnline()) return;
 
-                final int playerY = Math.max(player.getLevel().getMinHeight(), Math.min(player.getLevel().getMaxHeight(), player.getFloorY()));
+                final int playerY = Math.max(player.getLevel().getMinHeight(), Math.min(player.getLevel().getMaxHeight() - 1, player.getFloorY()));
                 final int biomeId = player.getLevel().getBiomeId(player.getFloorX(), playerY, player.getFloorZ());
 
                 final float tps = this.getServer().getTicksPerSecond();
