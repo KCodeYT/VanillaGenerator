@@ -146,8 +146,7 @@ public class VanillaServer {
 
     public void close() {
         this.manualClose.set(true);
-        for(Client client : this.clients)
-            client.disconnect("Closing chunk generator");
+        for(Client client : this.clients) client.close();
         this.processWrapper.kill();
     }
 
