@@ -17,7 +17,10 @@
 package de.kcodeyt.vanilla.generator.server;
 
 import cn.nukkit.Server;
+import cn.nukkit.utils.Logger;
 import de.kcodeyt.vanilla.VanillaGeneratorPlugin;
+import de.kcodeyt.vanilla.util.GameVersion;
+import de.kcodeyt.vanilla.util.ZipHelper;
 import de.kcodeyt.vanilla.world.World;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.SystemUtils;
@@ -29,126 +32,150 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipInputStream;
 
 /**
  * @author Kevims KCodeYT
  * @version 1.0-SNAPSHOT
  */
-class BedrockDedicatedServer {
+public class BedrockDedicatedServer {
 
-    private static final String WINDOWS_DIST = "https://minecraft.azureedge.net/bin-win/bedrock-server-1.19.41.01.zip";
-    private static final String LINUX_DIST = "https://minecraft.azureedge.net/bin-linux/bedrock-server-1.19.41.01.zip";
+    private static final GameVersion NEWEST = GameVersion.of("1.19.41.01");
+    private static final String DIST_URL_TEMPLATE = "https://minecraft.azureedge.net/bin-[os]/bedrock-server-[version].zip";
 
+    private static final Logger LOGGER = VanillaGeneratorPlugin.getInstance().getLogger();
     private static final File TEMP_DIRECTORY = new File("temp");
     private static final CompletableFuture<File> FUTURE = new CompletableFuture<>();
 
-    static {
-        if(TEMP_DIRECTORY.exists() || TEMP_DIRECTORY.mkdirs()) {
-            final File distFolder = new File(TEMP_DIRECTORY, "dist");
-            if(distFolder.exists() || distFolder.mkdirs()) {
-                final String urlForOS = SystemUtils.IS_OS_WINDOWS ? WINDOWS_DIST : LINUX_DIST;
-                final String[] urlSplit = urlForOS.split("/");
-                final String serverFile = urlSplit[urlSplit.length - 1];
+    public static void downloadServer() throws IOException {
+        if(!TEMP_DIRECTORY.exists() && !TEMP_DIRECTORY.mkdirs()) return;
 
-                final File extracted = new File(distFolder, "extracted");
-                if(extracted.exists() || extracted.mkdirs()) {
-                    final File localServerCopy = new File(distFolder, serverFile);
-                    if(!localServerCopy.exists()) {
-                        new Thread(() -> {
-                            try {
-                                FileUtils.copyURLToFile(new URL(urlForOS), localServerCopy, 30000, 5000);
-                                unzip(localServerCopy, extracted);
-                                FUTURE.complete(extracted);
-                            } catch(IOException e) {
-                                FUTURE.completeExceptionally(e);
-                            }
-                        }).start();
-                    } else
-                        FUTURE.complete(extracted);
-                }
+        final File distFolder = new File(TEMP_DIRECTORY, "dist");
+        if(!distFolder.exists() && !distFolder.mkdirs()) return;
+
+        final String distUrl = DIST_URL_TEMPLATE.
+                replace("[os]", SystemUtils.IS_OS_WINDOWS ? "win" : "linux").
+                replace("[version]", NEWEST.toString());
+
+        final String serverFile = distUrl.substring(distUrl.lastIndexOf('/') + 1);
+
+        removeOldServerBinaries(distFolder, serverFile);
+
+        final File extracted = new File(distFolder, "extracted");
+        final File localServerCopy = new File(distFolder, serverFile);
+        if(localServerCopy.exists() && extracted.exists()) {
+            FUTURE.complete(extracted);
+            return;
+        }
+
+        LOGGER.info("Downloading bedrock server binary files! This may take a while...");
+        CompletableFuture.runAsync(() -> {
+            try {
+                if(extracted.exists()) FileUtils.deleteDirectory(extracted);
+
+                FileUtils.copyURLToFile(new URL(distUrl), localServerCopy, 30000, 5000);
+                ZipHelper.unzip(localServerCopy, extracted);
+
+                LOGGER.info("Successfully downloaded bedrock server binary files!");
+                FUTURE.complete(extracted);
+            } catch(IOException e) {
+                LOGGER.error("Failed to download bedrock server binary files!", e);
+                FUTURE.complete(null);
+            }
+        });
+    }
+
+    private static void removeOldServerBinaries(File distDir, String serverFile) throws IOException {
+        final File[] filesInDistDir = distDir.listFiles();
+        if(filesInDistDir == null || filesInDistDir.length == 0) return;
+
+        for(File file : filesInDistDir) {
+            if(file.isDirectory()) continue;
+
+            if(!file.getName().equalsIgnoreCase(serverFile)) {
+                FileUtils.delete(file);
             }
         }
     }
 
-    private static void unzip(File fileZip, File destDir) throws IOException {
-        final byte[] buffer = new byte[1024];
-        try(final ZipInputStream inputStream = new ZipInputStream(new FileInputStream(fileZip))) {
-            ZipEntry zipEntry = inputStream.getNextEntry();
-            while(zipEntry != null) {
-                final File newFile = newFile(destDir, zipEntry);
-                if(zipEntry.isDirectory()) {
-                    if(!newFile.mkdirs()) {
-                        inputStream.closeEntry();
-                        return;
-                    }
-                } else {
-                    try(final FileOutputStream outputStream = new FileOutputStream(newFile)) {
-                        int len;
-                        while((len = inputStream.read(buffer)) > 0)
-                            outputStream.write(buffer, 0, len);
-                    }
-                }
-
-                zipEntry = inputStream.getNextEntry();
-            }
-
-            inputStream.closeEntry();
-        }
-    }
-
-    private static File newFile(File destinationDir, ZipEntry zipEntry) throws IOException {
-        final File destFile = new File(destinationDir, zipEntry.getName());
-        final String destDirPath = destinationDir.getCanonicalPath();
-        final String destFilePath = destFile.getCanonicalPath();
-        if(!destFilePath.startsWith(destDirPath + File.separator))
-            throw new IOException("Entry is outside of the target dir: " + zipEntry.getName());
-        return destFile;
-    }
-
-    static File createTempServer(World world, int serverPort) {
+    public static File createTempServer(World world, int serverPort) {
         final File tempServer = new File(TEMP_DIRECTORY, "server-" + world.getWorldName());
-        if(!tempServer.exists()) {
-            if(!tempServer.mkdirs()) return null;
 
-            FUTURE.whenComplete((original, throwable) -> {
-                if(throwable != null)
-                    VanillaGeneratorPlugin.getInstance().getLogger().error("Could not download server binaries", throwable);
-                else
-                    try {
-                        FileUtils.copyDirectory(original, tempServer);
-
-                        if(!SystemUtils.IS_OS_WINDOWS) {
-                            final File startFile = new File(tempServer, "start.sh");
-                            final File binaryFile = new File(tempServer, "bedrock_server");
-                            try(final FileOutputStream outputStream = new FileOutputStream(startFile)) {
-                                outputStream.write("#!/bin/bash\nLD_LIBRARY_PATH=. ./bedrock_server".getBytes());
-                            } catch(IOException e) {
-                                VanillaGeneratorPlugin.getInstance().getLogger().error("Could now write bash script for starting BDS", e);
-                            }
-
-                            try {
-                                Files.setPosixFilePermissions(startFile.toPath(), PosixFilePermissions.fromString("rwxr--r--"));
-                            } catch(IOException e) {
-                                VanillaGeneratorPlugin.getInstance().getLogger().error("Could not set execute flag on bash script", e);
-                            }
-
-                            try {
-                                Files.setPosixFilePermissions(binaryFile.toPath(), PosixFilePermissions.fromString("rwxr--r--"));
-                            } catch(IOException e) {
-                                VanillaGeneratorPlugin.getInstance().getLogger().error("Could not set execute flag on bedrock server binary", e);
-                            }
-                        }
-                    } catch(IOException e) {
-                        VanillaGeneratorPlugin.getInstance().getLogger().error("Could not copy from server template to world server directory", e);
-                    }
-            }).join();
+        if(!tempServer.exists() && !tempServer.mkdirs()) {
+            LOGGER.error("Could not create temporary server for world [" + world.getWorldName() + "]!");
+            return null;
         }
 
+        final GameVersion versionOfServer = getVersionOfServer(tempServer);
+
+        if(versionOfServer.isOlderThan(NEWEST)) {
+            if(versionOfServer.equals(GameVersion.NULL_VERSION))
+                LOGGER.info("Creating bedrock server for world " + world.getWorldName() + ". This may take a while...");
+            else
+                LOGGER.info("Updating bedrock server for world " + world.getWorldName() + ". This may take a while...");
+
+            copyOrUpdateServer(tempServer);
+
+            if(versionOfServer.equals(GameVersion.NULL_VERSION))
+                LOGGER.info("Successfully created bedrock server!");
+            else
+                LOGGER.info("Successfully updated bedrock server!");
+        }
+
+        updateServerVersion(tempServer);
         updateServerProperties(tempServer, world, serverPort);
 
         return tempServer;
+    }
+
+    private static void copyOrUpdateServer(File tempServer) {
+        FUTURE.whenComplete((original, throwable) -> {
+            if(original == null) return;
+
+            try {
+                final File[] filesInTempServer = tempServer.listFiles();
+                if(filesInTempServer != null && filesInTempServer.length > 0) {
+                    for(File file : filesInTempServer) {
+                        final File fileInOriginal = new File(original, file.getName());
+
+                        if(fileInOriginal.exists()) {
+                            if(file.isDirectory()) FileUtils.deleteDirectory(file);
+                            else FileUtils.delete(file);
+                        }
+                    }
+                }
+
+                FileUtils.copyDirectory(original, tempServer);
+
+                if(!SystemUtils.IS_OS_WINDOWS) createStartFile(tempServer);
+            } catch(IOException e) {
+                LOGGER.error("Could not copy from server template to world server directory", e);
+            }
+        }).join();
+    }
+
+    private static void createStartFile(File tempServer) {
+        if(!SystemUtils.IS_OS_WINDOWS) {
+            final File startFile = new File(tempServer, "start.sh");
+            final File binaryFile = new File(tempServer, "bedrock_server");
+
+            try(final FileOutputStream outputStream = new FileOutputStream(startFile)) {
+                outputStream.write("#!/bin/bash\nLD_LIBRARY_PATH=. ./bedrock_server".getBytes());
+            } catch(IOException e) {
+                LOGGER.error("Could now write bash script for starting BDS", e);
+            }
+
+            try {
+                Files.setPosixFilePermissions(startFile.toPath(), PosixFilePermissions.fromString("rwxr--r--"));
+            } catch(IOException e) {
+                LOGGER.error("Could not set execute flag on bash script", e);
+            }
+
+            try {
+                Files.setPosixFilePermissions(binaryFile.toPath(), PosixFilePermissions.fromString("rwxr--r--"));
+            } catch(IOException e) {
+                LOGGER.error("Could not set execute flag on bedrock server binary", e);
+            }
+        }
     }
 
     private static void updateServerProperties(File tempServer, World world, int serverPort) {
@@ -178,11 +205,11 @@ class BedrockDedicatedServer {
                 lines.add(line);
             }
         } catch(IOException e) {
-            VanillaGeneratorPlugin.getInstance().getLogger().error("Could not edit world servers server.properties", e);
+            LOGGER.error("Could not edit world servers server.properties", e);
         }
 
         if(!serverProperties.delete()) {
-            VanillaGeneratorPlugin.getInstance().getLogger().error("Could not delete world servers server.properties");
+            LOGGER.error("Could not delete world servers server.properties");
             return;
         }
 
@@ -196,7 +223,30 @@ class BedrockDedicatedServer {
                 bufferedWriter.flush();
             }
         } catch(IOException e) {
-            VanillaGeneratorPlugin.getInstance().getLogger().error("Could not edit world servers server.properties", e);
+            LOGGER.error("Could not edit world servers server.properties", e);
+        }
+    }
+
+    private static GameVersion getVersionOfServer(File tempServer) {
+        final File versionFile = new File(tempServer, ".version");
+
+        if(!versionFile.exists()) return GameVersion.NULL_VERSION;
+
+        try(final BufferedReader bufferedReader = new BufferedReader(new FileReader(versionFile))) {
+            return GameVersion.of(bufferedReader.readLine());
+        } catch(Exception e) {
+            LOGGER.error("Could not read server version from file!", e);
+            return GameVersion.NULL_VERSION;
+        }
+    }
+
+    private static void updateServerVersion(File tempServer) {
+        final File versionFile = new File(tempServer, ".version");
+
+        try(final BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(versionFile))) {
+            bufferedWriter.write(BedrockDedicatedServer.NEWEST.toString());
+        } catch(IOException e) {
+            LOGGER.error("Could not update the server version file!", e);
         }
     }
 
