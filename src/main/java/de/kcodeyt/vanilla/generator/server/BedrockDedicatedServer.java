@@ -86,7 +86,7 @@ public class BedrockDedicatedServer {
 
     private static void removeOldServerBinaries(File distDir, String serverFile) throws IOException {
         final File[] filesInDistDir = distDir.listFiles();
-        if(filesInDistDir == null || filesInDistDir.length == 0) return;
+        if(filesInDistDir == null) return;
 
         for(File file : filesInDistDir) {
             if(file.isDirectory()) continue;
@@ -133,7 +133,7 @@ public class BedrockDedicatedServer {
 
             try {
                 final File[] filesInTempServer = tempServer.listFiles();
-                if(filesInTempServer != null && filesInTempServer.length > 0) {
+                if(filesInTempServer != null) {
                     for(File file : filesInTempServer) {
                         final File fileInOriginal = new File(original, file.getName());
 
