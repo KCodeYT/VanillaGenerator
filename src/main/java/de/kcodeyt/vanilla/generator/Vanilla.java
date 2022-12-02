@@ -66,9 +66,4 @@ public abstract class Vanilla extends Generator {
         return SPAWN_VECTOR;
     }
 
-    @Override
-    public ChunkManager getChunkManager() {
-        return this.chunkManager;
-    }
-
 }
