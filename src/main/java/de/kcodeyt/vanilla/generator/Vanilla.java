@@ -17,7 +17,6 @@
 package de.kcodeyt.vanilla.generator;
 
 import cn.nukkit.level.ChunkManager;
-import cn.nukkit.level.Level;
 import cn.nukkit.level.format.generic.BaseFullChunk;
 import cn.nukkit.level.generator.Generator;
 import cn.nukkit.math.NukkitRandom;
@@ -36,21 +35,18 @@ public abstract class Vanilla extends Generator {
 
     private static final Vector3 SPAWN_VECTOR = new Vector3(0.5, 128, 0.5);
 
-    private ChunkManager chunkManager;
     private VanillaServer vanillaServer;
 
     @Override
     public void init(ChunkManager chunkManager, NukkitRandom nukkitRandom) {
-        this.chunkManager = chunkManager;
-        if(chunkManager instanceof Level && this.vanillaServer == null)
-            this.vanillaServer = VanillaGeneratorPlugin.getVanillaServer((Level) chunkManager).join();
+        if(this.level.getServer().isPrimaryThread())
+            this.vanillaServer = VanillaGeneratorPlugin.getVanillaServer(this.level).join();
     }
 
     @Override
     public void generateChunk(int chunkX, int chunkZ) {
         final BaseFullChunk fullChunk = this.chunkManager.getChunk(chunkX, chunkZ);
-        if(this.vanillaServer == null)
-            this.vanillaServer = VanillaGeneratorPlugin.getVanillaServer(fullChunk.getProvider().getLevel()).join();
+        if(this.vanillaServer == null) this.vanillaServer = VanillaGeneratorPlugin.getVanillaServer(this.level).join();
 
         this.vanillaServer.requestChunk(fullChunk);
     }

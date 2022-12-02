@@ -39,7 +39,7 @@ import java.util.concurrent.CompletableFuture;
  */
 public class BedrockDedicatedServer {
 
-    private static final GameVersion NEWEST = GameVersion.of("1.19.41.01");
+    private static final GameVersion NEWEST = GameVersion.of("1.19.50.02");
     private static final String DIST_URL_TEMPLATE = "https://minecraft.azureedge.net/bin-[os]/bedrock-server-[version].zip";
 
     private static final Logger LOGGER = VanillaGeneratorPlugin.getInstance().getLogger();
