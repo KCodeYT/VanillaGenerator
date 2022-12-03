@@ -65,7 +65,8 @@ public enum Enchantments {
     MULTISHOT("minecraft:multishot", 33, new MultishotEnchantment(EnchantmentRarity.RARE)),
     PIERCING("minecraft:piercing", 34, new PiercingEnchantment(EnchantmentRarity.COMMON)),
     QUICK_CHARGE("minecraft:quick_charge", 35, new QuickChargeEnchantment(EnchantmentRarity.UNCOMMON)),
-    SOUL_SPEED("minecraft:soul_speed", 36, new SoulSpeedEnchantment(EnchantmentRarity.VERY_RARE));
+    SOUL_SPEED("minecraft:soul_speed", 36, new SoulSpeedEnchantment(EnchantmentRarity.VERY_RARE)),
+    SWITFT_SNEAK("minecraft:switft_sneak", 37, new SwiftSneakEnchantment(EnchantmentRarity.VERY_RARE));
 
     private final String identifier;
     private final int numericId;
