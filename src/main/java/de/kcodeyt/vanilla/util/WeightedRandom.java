@@ -17,6 +17,7 @@
 package de.kcodeyt.vanilla.util;
 
 import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 
 import java.util.List;
@@ -53,6 +54,7 @@ public class WeightedRandom {
     }
 
     @Getter
+    @EqualsAndHashCode
     @AllArgsConstructor
     public static class Item {
         final int weight;
