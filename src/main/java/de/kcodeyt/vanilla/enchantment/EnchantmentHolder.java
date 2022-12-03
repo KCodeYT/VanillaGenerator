@@ -17,18 +17,20 @@
 package de.kcodeyt.vanilla.enchantment;
 
 import de.kcodeyt.vanilla.util.WeightedRandom;
-import lombok.Getter;
+import lombok.EqualsAndHashCode;
+import lombok.Value;
 
 /**
  * @author Kevims KCodeYT
  * @version 1.0-SNAPSHOT
  */
-@Getter
+@Value
+@EqualsAndHashCode(callSuper = true)
 public class EnchantmentHolder extends WeightedRandom.Item {
 
-    private final VanillaEnchantment enchantment;
-    private final Enchantments enchantments;
-    private final int level;
+    VanillaEnchantment enchantment;
+    Enchantments enchantments;
+    int level;
 
     EnchantmentHolder(VanillaEnchantment enchantment, Enchantments enchantments, int level) {
         super(enchantment.getRarity().getWeight());

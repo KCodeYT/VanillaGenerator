@@ -16,7 +16,8 @@
 
 package de.kcodeyt.vanilla.generator;
 
-import cn.nukkit.level.Level;
+import cn.nukkit.level.DimensionData;
+import cn.nukkit.level.DimensionEnum;
 
 import java.util.Map;
 
@@ -38,8 +39,8 @@ public class VanillaNether extends Vanilla {
     }
 
     @Override
-    public int getDimension() {
-        return Level.DIMENSION_NETHER;
+    public DimensionData getDimensionData() {
+        return DimensionEnum.NETHER.getDimensionData();
     }
 
     @Override

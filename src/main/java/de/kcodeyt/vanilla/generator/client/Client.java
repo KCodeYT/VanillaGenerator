@@ -16,46 +16,38 @@
 
 package de.kcodeyt.vanilla.generator.client;
 
-import cn.nukkit.Server;
 import cn.nukkit.level.Level;
 import cn.nukkit.level.Location;
 import cn.nukkit.math.BlockVector3;
-import cn.nukkit.utils.BinaryStream;
-import com.nukkitx.math.vector.Vector2i;
+import com.nimbusds.jose.JOSEException;
 import com.nukkitx.math.vector.Vector3f;
-import com.nukkitx.math.vector.Vector3i;
 import com.nukkitx.network.util.DisconnectReason;
 import com.nukkitx.protocol.bedrock.BedrockClient;
 import com.nukkitx.protocol.bedrock.BedrockClientSession;
 import com.nukkitx.protocol.bedrock.BedrockPacket;
-import com.nukkitx.protocol.bedrock.BedrockPacketType;
-import com.nukkitx.protocol.bedrock.data.*;
 import com.nukkitx.protocol.bedrock.data.command.CommandOriginData;
 import com.nukkitx.protocol.bedrock.data.command.CommandOriginType;
 import com.nukkitx.protocol.bedrock.packet.*;
+import com.nukkitx.protocol.bedrock.util.EncryptionUtils;
 import de.kcodeyt.vanilla.VanillaGeneratorPlugin;
 import de.kcodeyt.vanilla.generator.chunk.ChunkData;
 import de.kcodeyt.vanilla.generator.chunk.ChunkRequest;
 import de.kcodeyt.vanilla.generator.client.clientdata.LoginData;
-import de.kcodeyt.vanilla.generator.network.EncryptionHandler;
-import de.kcodeyt.vanilla.generator.network.EncryptionKeyFactory;
-import de.kcodeyt.vanilla.generator.network.PlayerConnectionState;
 import de.kcodeyt.vanilla.generator.server.VanillaServer;
-import de.kcodeyt.vanilla.jwt.JwtSignatureException;
-import de.kcodeyt.vanilla.jwt.JwtToken;
-import de.kcodeyt.vanilla.util.Palette;
 import de.kcodeyt.vanilla.world.World;
 import io.netty.util.AsciiString;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
 import lombok.Getter;
+import lombok.Setter;
 
-import javax.crypto.spec.SecretKeySpec;
 import java.net.InetSocketAddress;
 import java.security.KeyPair;
-import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Queue;
 import java.util.concurrent.*;
 import java.util.function.Consumer;
 
@@ -76,19 +68,30 @@ public class Client {
     private final Level level;
     private final List<Consumer<CommandOutputPacket>> commandConsumers;
     private final Queue<ChunkRequest> queue;
-    private final Set<ChunkData> chunks;
-    private final Map<Vector2i, Int2ObjectMap<int[]>> chunkBiomes;
+    private final Long2ObjectMap<ChunkData> chunks;
+    private final Long2ObjectMap<Int2ObjectMap<int[]>> chunkBiomes;
+
     private BedrockClientSession clientSession;
-    private PlayerConnectionState state = PlayerConnectionState.NETWORK_INIT;
-    private Location spawn;
-    private int currentDimension;
-    private Location currentPos;
-    private BlockVector3 networkPos;
-    private long ownId;
-    private long runtimeId;
+    private ConnectionState currentState;
+
     private Consumer<DisconnectReason> disconnectConsumer;
     private boolean disconnected;
     private ScheduledFuture<?> updateFuture;
+
+    @Setter
+    private int currentDimension;
+    @Setter
+    private long uniqueEntityId;
+    @Setter
+    private long runtimeEntityId;
+
+    @Setter
+    private Location spawnPosition;
+    @Setter
+    private Location currentPosition;
+    @Setter
+    private BlockVector3 networkPosition;
+
     @Getter
     private ChunkRequest current;
 
@@ -97,14 +100,14 @@ public class Client {
     public Client(VanillaServer vanillaServer, LoginData loginData, Queue<ChunkRequest> queue) {
         this.vanillaServer = vanillaServer;
         this.loginData = loginData;
-        this.keyPair = EncryptionKeyFactory.INSTANCE.createKeyPair();
+        this.keyPair = EncryptionUtils.createKeyPair();
         this.world = vanillaServer.getWorld();
         this.level = this.world.getLevel();
         this.executorService = Executors.newSingleThreadScheduledExecutor();
         this.queue = queue;
         this.commandConsumers = new ArrayList<>();
-        this.chunks = new CopyOnWriteArraySet<>();
-        this.chunkBiomes = new ConcurrentHashMap<>();
+        this.chunks = Long2ObjectMaps.synchronize(new Long2ObjectOpenHashMap<>());
+        this.chunkBiomes = Long2ObjectMaps.synchronize(new Long2ObjectOpenHashMap<>());
         this.bedrockClient = new BedrockClient(new InetSocketAddress("0.0.0.0", 0));
         this.bedrockClient.setRakNetVersion(Network.CODEC.getRaknetProtocolVersion());
         this.bedrockClient.bind().join();
@@ -127,357 +130,65 @@ public class Client {
                 }
             });
 
-            this.clientSession.setBatchHandler((bedrockSession, compressed, packets) -> {
-                try {
-                    for(BedrockPacket packet : packets) this.handlePacket(packet);
-                } catch(Exception e) {
-                    VanillaGeneratorPlugin.getInstance().getLogger().error("Error whilst handling packet!", e);
-                }
-            });
+            this.setState(ConnectionState.NETWORK_INIT);
             this.initNetwork();
         }).thenApply(session -> this);
     }
 
-    public void disconnect(String message) {
-        if(message != null && message.length() > 0) {
-            final DisconnectPacket disconnectPacket = new DisconnectPacket();
-            disconnectPacket.setKickMessage(message);
-            this.send(disconnectPacket);
-            this.internalClose();
-        } else {
-            this.internalClose();
+    public void close() {
+        if(this.clientSession != null) {
+            if(!this.clientSession.isClosed()) this.clientSession.disconnect();
+            this.clientSession = null;
         }
+
+        if(this.updateFuture != null) this.updateFuture.cancel(true);
+        this.updateFuture = null;
+
+        this.bedrockClient.close();
     }
 
-    private void sendImmediately(BedrockPacket packet) {
+    public void sendPacketImmediately(BedrockPacket packet) {
         if(this.clientSession == null) return;
         this.clientSession.sendPacketImmediately(packet);
     }
 
-    private void send(BedrockPacket packet) {
+    public void sendPacket(BedrockPacket packet) {
         if(this.clientSession == null) return;
         this.clientSession.sendPacket(packet);
     }
 
-    private ChunkData getChunk(int chunkX, int chunkZ) {
-        for(ChunkData chunkData : this.chunks) {
-            if(chunkData.getX() == chunkX && chunkData.getZ() == chunkZ)
-                return chunkData;
-        }
-        return null;
+    public void setState(ConnectionState state) {
+        if(this.clientSession == null) return;
+        if(this.currentState == state) return;
+
+        this.currentState = state;
+        this.clientSession.setPacketHandler(state.newPacketHandler(this));
     }
 
-    private void update() {
-        while(true) {
-            if(this.current != null) {
-                final ChunkData chunkData = this.getChunk(this.current.getX(), this.current.getZ());
-                if(chunkData != null) {
-                    this.current.getFuture().resolve(chunkData);
-                    this.chunks.remove(chunkData);
-                    this.current = null;
-                } else {
-                    this.moveToChunk(this.current);
-                    return;
-                }
-            }
+    public void initNetwork() {
+        if(this.currentState != ConnectionState.NETWORK_INIT) return;
 
-            this.current = this.queue.poll();
-            if(this.current != null) {
-                final ChunkData chunkData = this.getChunk(this.current.getX(), this.current.getZ());
-                if(chunkData != null) {
-                    this.current.getFuture().resolve(chunkData);
-                    this.chunks.remove(chunkData);
-                    this.current = null;
-                } else {
-                    this.moveToChunk(this.current);
-                    return;
-                }
-            }
-        }
+        final RequestNetworkSettingsPacket requestNetworkSettingsPacket = new RequestNetworkSettingsPacket();
+        requestNetworkSettingsPacket.setProtocolVersion(Network.CODEC.getProtocolVersion());
+
+        this.sendPacketImmediately(requestNetworkSettingsPacket);
     }
 
-    private void internalClose() {
-        if(this.clientSession != null) {
-            if(!this.clientSession.isClosed()) this.clientSession.disconnect();
-            if(this.updateFuture != null) this.updateFuture.cancel(true);
+    public void login() {
+        if(this.currentState != ConnectionState.NETWORK_INIT) return;
 
-            this.updateFuture = null;
-            this.clientSession = null;
-        }
-    }
-
-    private void initNetwork() {
-        if(this.state == PlayerConnectionState.NETWORK_INIT) {
-            final RequestNetworkSettingsPacket requestNetworkSettingsPacket = new RequestNetworkSettingsPacket();
-            requestNetworkSettingsPacket.setProtocolVersion(Network.CODEC.getProtocolVersion());
-
-            this.sendImmediately(requestNetworkSettingsPacket);
-        }
-    }
-
-    private void login() {
-        if(this.state == PlayerConnectionState.HANDSHAKE) {
-            this.state = PlayerConnectionState.LOGIN;
-
-            final MojangLoginForger mojangLoginForger = new MojangLoginForger();
-            mojangLoginForger.setPublicKey(this.keyPair.getPublic());
-            mojangLoginForger.setUsername(this.loginData.getName());
-            mojangLoginForger.setUuid(this.loginData.getUniqueId());
-            mojangLoginForger.setXuid(this.loginData.getXuid());
-            mojangLoginForger.setSkinData(this.loginData.buildSkinData(ThreadLocalRandom.current(), this.serverAddress));
-
-            final String jwt = "{\"chain\":[\"" + mojangLoginForger.forge(this.keyPair.getPrivate()) + "\"]}";
-            final String skin = mojangLoginForger.forgeSkin(this.keyPair.getPrivate());
+        try {
             final LoginPacket loginPacket = new LoginPacket();
             loginPacket.setProtocolVersion(Network.CODEC.getProtocolVersion());
-            loginPacket.setChainData(new AsciiString(jwt));
-            loginPacket.setSkinData(new AsciiString(skin));
-            this.sendImmediately(loginPacket);
+            loginPacket.setChainData(AsciiString.of(MojangLoginForger.forgeLoginChain(this.keyPair, this.loginData)));
+            loginPacket.setSkinData(AsciiString.of(MojangLoginForger.forge(this.keyPair, this.loginData.buildSkinData(ThreadLocalRandom.current(), this.serverAddress))));
+            this.sendPacketImmediately(loginPacket);
+        } catch(JOSEException e) {
+            this.world.getPlugin().getLogger().error("Could not build login packet for client!", e);
         }
     }
 
-    private void sendChunkRadius() {
-        final RequestChunkRadiusPacket chunkRadius = new RequestChunkRadiusPacket();
-        chunkRadius.setRadius(Server.getInstance().getViewDistance());
-        this.send(chunkRadius);
-    }
-
-    private void handlePacket(BedrockPacket bedrockPacket) {
-        if(bedrockPacket.getPacketType() == BedrockPacketType.DISCONNECT) {
-            final DisconnectPacket disconnect = (DisconnectPacket) bedrockPacket;
-            System.out.println("Disconnect: " + disconnect.getKickMessage());
-            return;
-        }
-
-        if(this.state == PlayerConnectionState.NETWORK_INIT) {
-            if(bedrockPacket.getPacketType() == BedrockPacketType.NETWORK_SETTINGS) {
-                final NetworkSettingsPacket networkSettingsPacket = (NetworkSettingsPacket) bedrockPacket;
-                this.clientSession.setCompression(networkSettingsPacket.getCompressionAlgorithm());
-
-                this.state = PlayerConnectionState.HANDSHAKE;
-                this.login();
-            }
-
-            return;
-        }
-
-        if(this.world.getDimension() == this.currentDimension) {
-            if(bedrockPacket.getPacketType() == BedrockPacketType.NETWORK_CHUNK_PUBLISHER_UPDATE) {
-                final NetworkChunkPublisherUpdatePacket packet = (NetworkChunkPublisherUpdatePacket) bedrockPacket;
-                this.networkPos = new BlockVector3(packet.getPosition().getX() >> 4, 0, packet.getPosition().getZ() >> 4);
-                return;
-            }
-
-            if(bedrockPacket.getPacketType() == BedrockPacketType.LEVEL_CHUNK) {
-                final LevelChunkPacket packet = (LevelChunkPacket) bedrockPacket;
-
-                final BinaryStream binaryStream = new BinaryStream(packet.getData());
-                final Int2ObjectMap<int[]> biomeSections = new Int2ObjectOpenHashMap<>();
-
-                int[] biomesLast = null;
-                for(int y = this.world.getMinY(); y < this.world.getMaxY(); y++) {
-                    final int header = binaryStream.getByte();
-                    final int version = header >> 1;
-
-                    final int[] fullBiomes = new int[Palette.SIZE];
-
-                    if(version == 0) {
-                        final int biomeData = binaryStream.getVarInt();
-
-                        for(int i = 0; i < Palette.SIZE; i++) fullBiomes[i] = biomeData;
-
-                        biomeSections.put(y, fullBiomes);
-                        biomesLast = fullBiomes;
-                    } else if(version != 127) {
-                        final short[] indices = Palette.parseIndices(binaryStream, version);
-                        final int[] biomePalette = new int[binaryStream.getVarInt()];
-                        for(int i = 0; i < biomePalette.length; i++)
-                            biomePalette[i] = binaryStream.getVarInt();
-
-                        for(int i = 0; i < Palette.SIZE; i++) fullBiomes[i] = biomePalette[indices[i]];
-
-                        biomeSections.put(y, fullBiomes);
-                        biomesLast = fullBiomes;
-                    } else {
-                        if(biomesLast == null) biomesLast = new int[Palette.SIZE];
-                        System.arraycopy(biomesLast, 0, fullBiomes, 0, Palette.SIZE);
-
-                        biomeSections.put(y, fullBiomes);
-                    }
-
-                    biomeSections.put(y, fullBiomes);
-                }
-
-                if(packet.getSubChunkLimit() == -1) {
-                    this.chunks.add(new ChunkData(this.world, packet.getChunkX(), packet.getChunkZ(), Collections.emptyList(), biomeSections));
-                } else {
-                    this.chunkBiomes.put(Vector2i.from(packet.getChunkX(), packet.getChunkZ()), biomeSections);
-
-                    final SubChunkRequestPacket subChunkRequestPacket = new SubChunkRequestPacket();
-                    subChunkRequestPacket.setDimension(this.currentDimension);
-                    final Vector3i networkPos = Vector3i.from(this.networkPos.getX(), this.networkPos.getY(), this.networkPos.getZ());
-                    subChunkRequestPacket.setSubChunkPosition(networkPos);
-
-                    for(int y = 0; y <= packet.getSubChunkLimit(); y++)
-                        subChunkRequestPacket.getPositionOffsets().add(Vector3i.
-                                from(packet.getChunkX(), y + this.world.getMinY(), packet.getChunkZ()).
-                                sub(networkPos));
-
-                    this.send(subChunkRequestPacket);
-                }
-
-                return;
-            }
-
-            if(bedrockPacket.getPacketType() == BedrockPacketType.SUB_CHUNK) {
-                final SubChunkPacket subChunkPacket = (SubChunkPacket) bedrockPacket;
-                final Map<Vector2i, List<SubChunkData>> subChunks = new HashMap<>();
-                for(SubChunkData subChunk : subChunkPacket.getSubChunks()) {
-                    if(subChunk.getResult() == SubChunkRequestResult.CHUNK_NOT_FOUND) continue;
-
-                    final Vector3i position = subChunk.getPosition().add(subChunkPacket.getCenterPosition());
-                    final List<SubChunkData> subChunkData = subChunks.computeIfAbsent(position.toVector2(true), k -> new ArrayList<>());
-                    subChunkData.add(subChunk);
-                }
-
-                for(Map.Entry<Vector2i, List<SubChunkData>> entry : subChunks.entrySet()) {
-                    final int chunkX = entry.getKey().getX();
-                    final int chunkZ = entry.getKey().getY();
-                    final Int2ObjectMap<int[]> biomes = this.chunkBiomes.remove(Vector2i.from(chunkX, chunkZ));
-
-                    this.chunks.add(new ChunkData(this.world, chunkX, chunkZ, entry.getValue(), biomes));
-                }
-            }
-        }
-
-        if(this.state == PlayerConnectionState.LOGIN) {
-            if(bedrockPacket.getPacketType() == BedrockPacketType.PLAY_STATUS) {
-                final PlayStatusPacket packetPlayState = (PlayStatusPacket) bedrockPacket;
-                if(packetPlayState.getStatus() != PlayStatusPacket.Status.LOGIN_SUCCESS)
-                    this.destroy();
-                this.state = PlayerConnectionState.RESOURCE_PACK;
-                return;
-            } else if(bedrockPacket.getPacketType() == BedrockPacketType.SERVER_TO_CLIENT_HANDSHAKE) {
-                final ServerToClientHandshakePacket packetEncryptionRequest = (ServerToClientHandshakePacket) bedrockPacket;
-
-                try {
-                    final JwtToken token = JwtToken.parse(packetEncryptionRequest.getJwt());
-                    final String publicKeyB64 = token.getHeader().getProperty(String.class, "x5u");
-                    final PublicKey publicKey = EncryptionKeyFactory.INSTANCE.createPublicKey(publicKeyB64);
-
-                    if(token.validateSignature(publicKey)) {
-                        final EncryptionHandler encryptionHandler = new EncryptionHandler(this.keyPair, publicKey);
-                        if(encryptionHandler.beginServersideEncryption(Base64.getDecoder().decode(token.getClaim(String.class, "salt"))))
-                            this.clientSession.enableEncryption(new SecretKeySpec(encryptionHandler.getServerKey(), "AES"));
-
-                        this.send(new ClientToServerHandshakePacket());
-
-                        final ClientCacheStatusPacket cacheStatus = new ClientCacheStatusPacket();
-                        cacheStatus.setSupported(false);
-                        this.send(cacheStatus);
-                        return;
-                    }
-
-                    this.disconnect("Invalid jwt signature");
-                } catch(JwtSignatureException | NoSuchAlgorithmException e) {
-                    System.out.println("Invalid JWT signature from server: ");
-                    e.printStackTrace();
-                }
-            } else if(bedrockPacket.getPacketType() == BedrockPacketType.RESOURCE_PACKS_INFO) {
-                this.state = PlayerConnectionState.RESOURCE_PACK;
-            }
-        }
-
-        if(this.state == PlayerConnectionState.RESOURCE_PACK) {
-            if(bedrockPacket.getPacketType() == BedrockPacketType.RESOURCE_PACKS_INFO) {
-                final ResourcePackClientResponsePacket packetResourcePackResponse = new ResourcePackClientResponsePacket();
-                packetResourcePackResponse.setStatus(ResourcePackClientResponsePacket.Status.HAVE_ALL_PACKS);
-                this.send(packetResourcePackResponse);
-            } else if(bedrockPacket.getPacketType() == BedrockPacketType.RESOURCE_PACK_STACK) {
-                final ResourcePackClientResponsePacket packetResourcePackResponse = new ResourcePackClientResponsePacket();
-                packetResourcePackResponse.setStatus(ResourcePackClientResponsePacket.Status.COMPLETED);
-                this.send(packetResourcePackResponse);
-
-                this.state = PlayerConnectionState.PLAYING;
-                this.sendChunkRadius();
-
-                final SetLocalPlayerAsInitializedPacket packetSetLocalPlayerAsInitialized = new SetLocalPlayerAsInitializedPacket();
-                packetSetLocalPlayerAsInitialized.setRuntimeEntityId(this.ownId);
-                this.send(packetSetLocalPlayerAsInitialized);
-            }
-        }
-
-        if(bedrockPacket.getPacketType() == BedrockPacketType.START_GAME) {
-            final StartGamePacket startGame = ((StartGamePacket) bedrockPacket);
-
-            this.spawn = new Location(startGame.getDefaultSpawn().getX(), startGame.getDefaultSpawn().getY(), startGame.getDefaultSpawn().getZ());
-            this.currentDimension = startGame.getDimensionId();
-            this.ownId = startGame.getUniqueEntityId();
-            this.runtimeId = startGame.getRuntimeEntityId();
-
-            final RespawnPacket respawnPacket = new RespawnPacket();
-            respawnPacket.setPosition(startGame.getPlayerPosition());
-            respawnPacket.setState(RespawnPacket.State.CLIENT_READY);
-            this.send(respawnPacket);
-        } else if(bedrockPacket.getPacketType() == BedrockPacketType.PLAY_STATUS) {
-            final PlayStatusPacket.Status playState = ((PlayStatusPacket) bedrockPacket).getStatus();
-            if(playState == PlayStatusPacket.Status.PLAYER_SPAWN) {
-                this.move(this.spawn);
-
-                final RequestAbilityPacket requestAbilityPacket = new RequestAbilityPacket();
-                requestAbilityPacket.setType(AbilityType.BOOLEAN);
-                requestAbilityPacket.setAbility(Ability.FLYING);
-                requestAbilityPacket.setBoolValue(true);
-
-                this.send(requestAbilityPacket);
-
-                this.move(new Location(this.currentPos.getX(), 255, this.currentPos.getZ(), 0f, 0f));
-                this.checkReadyState();
-            }
-        } else if(bedrockPacket.getPacketType() == BedrockPacketType.MOVE_PLAYER) {
-            final MovePlayerPacket movePlayerPacket = (MovePlayerPacket) bedrockPacket;
-            if(movePlayerPacket.getRuntimeEntityId() == this.ownId || movePlayerPacket.getRuntimeEntityId() == this.runtimeId) {
-                final Vector3f position = movePlayerPacket.getPosition();
-                final Vector3f rotation = movePlayerPacket.getRotation();
-                this.move(new Location(position.getX(), position.getY(), position.getZ(), rotation.getY(), rotation.getX()));
-            }
-        } else if(bedrockPacket.getPacketType() == BedrockPacketType.MOVE_ENTITY_ABSOLUTE) {
-            final MoveEntityAbsolutePacket moveEntityAbsolutePacket = (MoveEntityAbsolutePacket) bedrockPacket;
-            if(moveEntityAbsolutePacket.getRuntimeEntityId() == this.ownId || moveEntityAbsolutePacket.getRuntimeEntityId() == this.runtimeId) {
-                final Vector3f position = moveEntityAbsolutePacket.getPosition();
-                final Vector3f rotation = moveEntityAbsolutePacket.getRotation();
-                this.move(new Location(position.getX(), position.getY(), position.getZ(), rotation.getY(), rotation.getX()));
-            }
-        } else if(bedrockPacket.getPacketType() == BedrockPacketType.MOVE_ENTITY_DELTA) {
-            final MoveEntityDeltaPacket moveEntityDeltaPacket = (MoveEntityDeltaPacket) bedrockPacket;
-            if(moveEntityDeltaPacket.getRuntimeEntityId() == this.ownId || moveEntityDeltaPacket.getRuntimeEntityId() == this.runtimeId) {
-                this.move(new Location(
-                        moveEntityDeltaPacket.getX(),
-                        moveEntityDeltaPacket.getY(),
-                        moveEntityDeltaPacket.getZ(),
-                        moveEntityDeltaPacket.getYaw(),
-                        moveEntityDeltaPacket.getPitch()));
-            }
-        } else if(bedrockPacket.getPacketType() == BedrockPacketType.CHANGE_DIMENSION) {
-            final ChangeDimensionPacket changeDimensionPacket = (ChangeDimensionPacket) bedrockPacket;
-            this.currentDimension = changeDimensionPacket.getDimension();
-            final PlayerActionPacket playerActionPacket = new PlayerActionPacket();
-            playerActionPacket.setRuntimeEntityId(this.runtimeId);
-            playerActionPacket.setBlockPosition(Vector3i.from(this.currentPos.x, Math.min(64, this.currentPos.y), this.currentPos.z));
-            playerActionPacket.setResultPosition(Vector3i.from(this.currentPos.x, Math.min(64, this.currentPos.y), this.currentPos.z));
-            playerActionPacket.setFace(0);
-            playerActionPacket.setAction(PlayerActionType.DIMENSION_CHANGE_SUCCESS);
-            this.send(playerActionPacket);
-            this.checkReadyState();
-        } else if(bedrockPacket.getPacketType() == BedrockPacketType.COMMAND_OUTPUT) {
-            final CommandOutputPacket commandOutputPacket = (CommandOutputPacket) bedrockPacket;
-            final Consumer<CommandOutputPacket> consumer = this.commandConsumers.remove(0);
-            if(consumer != null)
-                consumer.accept(commandOutputPacket);
-        }
-    }
-
-    private void checkReadyState() {
+    public void checkReadyState() {
         if(this.currentDimension == this.world.getDimension()) {
             this.world.getPlugin().getLogger().info("Level " + this.world.getWorldName() + " successfully connected!");
             this.updateFuture = this.executorService.scheduleAtFixedRate(this::update, 50, 50, TimeUnit.MILLISECONDS);
@@ -485,7 +196,7 @@ public class Client {
             this.requestDimensionChange(this.world.getDimension());
     }
 
-    private void sendCommand(String command) {
+    public void sendCommand(String command) {
         this.sendCommand(command, null);
     }
 
@@ -495,36 +206,77 @@ public class Client {
         commandRequestPacket.setCommandOriginData(new CommandOriginData(CommandOriginType.PLAYER, this.loginData.getUniqueId(), "none", ThreadLocalRandom.current().nextLong()));
         commandRequestPacket.setCommand(command);
         this.commandConsumers.add(consumer);
-        this.send(commandRequestPacket);
+
+        this.sendPacket(commandRequestPacket);
+    }
+
+    public Consumer<CommandOutputPacket> getLatestCommandConsumer() {
+        return this.commandConsumers.size() > 0 ? this.commandConsumers.remove(0) : null;
+    }
+
+    public void addChunk(long chunkHash, ChunkData chunkData) {
+        this.chunks.put(chunkHash, chunkData);
+    }
+
+    public void cacheBiomes(long chunkHash, Int2ObjectMap<int[]> biomeSections) {
+        this.chunkBiomes.put(chunkHash, biomeSections);
+    }
+
+    public Int2ObjectMap<int[]> getBiomes(long chunkHash) {
+        return this.chunkBiomes.remove(chunkHash);
+    }
+
+    public void move(double x, double y, double z, double yaw, double pitch) {
+        y = Math.min(y, 260);
+
+        final MovePlayerPacket movePlayerPacket = new MovePlayerPacket();
+        movePlayerPacket.setRuntimeEntityId(this.runtimeEntityId);
+        movePlayerPacket.setPosition(Vector3f.from(x, y, z));
+        movePlayerPacket.setRotation(Vector3f.from(pitch, yaw, yaw));
+        movePlayerPacket.setTeleportationCause(MovePlayerPacket.TeleportationCause.UNKNOWN);
+        movePlayerPacket.setMode(MovePlayerPacket.Mode.TELEPORT);
+        movePlayerPacket.setTick(0);
+
+        this.sendPacket(movePlayerPacket);
+        this.currentPosition = new Location(x, y, z, yaw, pitch);
     }
 
     private void requestDimensionChange(int dimension) {
         final String portalBlock = dimension == Level.DIMENSION_OVERWORLD || dimension == Level.DIMENSION_NETHER ? "portal" : "end_portal";
-        this.sendCommand("/setblock " + this.currentPos.getFloorX() + " " + this.currentPos.getFloorY() + " " + this.currentPos.getFloorZ() + " " + portalBlock);
-        this.move(this.currentPos.add(0, 0.5, 0));
+        this.sendCommand("/setblock " + this.currentPosition.getFloorX() + " " + this.currentPosition.getFloorY() + " " + this.currentPosition.getFloorZ() + " " + portalBlock);
+
+        final Location positionToMove = this.currentPosition.floor().add(0.5, 0.5, 0.5);
+
+        this.move(positionToMove.x, positionToMove.y, positionToMove.z, positionToMove.yaw, positionToMove.pitch);
     }
 
-    private void move(Location target) {
-        final MovePlayerPacket movePlayerPacket = new MovePlayerPacket();
-        movePlayerPacket.setRuntimeEntityId(this.runtimeId);
-        target.y = Math.min(target.getY(), 260);
-        movePlayerPacket.setPosition(Vector3f.from(target.getX(), target.getY(), target.getZ()));
-        movePlayerPacket.setRotation(Vector3f.from(target.getPitch(), target.getYaw(), target.getYaw()));
-        movePlayerPacket.setTeleportationCause(MovePlayerPacket.TeleportationCause.UNKNOWN);
-        movePlayerPacket.setMode(MovePlayerPacket.Mode.TELEPORT);
-        movePlayerPacket.setTick(0);
-        this.send(movePlayerPacket);
-        this.currentPos = target;
+    private void update() {
+        while(this.handleCurrentRequest())
+            this.current = this.queue.poll();
     }
 
-    private void destroy() {
-        this.clientSession.disconnect();
+    private boolean handleCurrentRequest() {
+        if(this.current == null) return true;
+
+        final long chunkHash = Level.chunkHash(this.current.getX(), this.current.getZ());
+        final ChunkData chunkData = this.chunks.get(chunkHash);
+
+        if(chunkData == null) {
+            this.moveToChunk(this.current);
+            return false;
+        }
+
+        this.current.getFuture().complete(chunkData);
+        this.chunks.remove(chunkHash);
+        this.current = null;
+        return true;
     }
 
     private void moveToChunk(ChunkRequest chunkSquare) {
         final BlockVector3 targetPos = chunkSquare.getCenterPosition();
         final int y = this.world.getDimension() == Level.DIMENSION_NETHER ? 132 : 260;
-        this.move(new Location(targetPos.getX(), y, targetPos.getZ(), 0f, 0f));
+
+        this.move(targetPos.getX(), y, targetPos.getZ(), 0f, 0f);
     }
 
     public Client onDisconnect(Consumer<DisconnectReason> disconnectConsumer) {

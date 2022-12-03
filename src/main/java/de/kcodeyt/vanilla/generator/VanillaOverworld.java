@@ -16,6 +16,8 @@
 
 package de.kcodeyt.vanilla.generator;
 
+import cn.nukkit.level.DimensionData;
+import cn.nukkit.level.DimensionEnum;
 import cn.nukkit.level.Level;
 
 import java.util.Map;
@@ -37,8 +39,8 @@ public class VanillaOverworld extends Vanilla {
     }
 
     @Override
-    public int getDimension() {
-        return Level.DIMENSION_OVERWORLD;
+    public DimensionData getDimensionData() {
+        return DimensionEnum.OVERWORLD.getDimensionData();
     }
 
     @Override

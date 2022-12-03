@@ -17,10 +17,10 @@
 package de.kcodeyt.vanilla.generator.chunk;
 
 import cn.nukkit.math.BlockVector3;
-import de.kcodeyt.vanilla.async.Future;
 import lombok.Getter;
 
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 
 /**
  * @author Kevims KCodeYT
@@ -31,9 +31,9 @@ public class ChunkRequest {
 
     private final int x;
     private final int z;
-    private final Future<ChunkData> future;
+    private final CompletableFuture<ChunkData> future;
 
-    public ChunkRequest(int x, int z, Future<ChunkData> future) {
+    public ChunkRequest(int x, int z, CompletableFuture<ChunkData> future) {
         this.x = x;
         this.z = z;
         this.future = future;
