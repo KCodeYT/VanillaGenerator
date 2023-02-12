@@ -39,7 +39,7 @@ import java.util.concurrent.CompletableFuture;
  */
 public class BedrockDedicatedServer {
 
-    private static final GameVersion NEWEST = GameVersion.of("1.19.50.02");
+    private static final GameVersion LATEST_VERSION = GameVersion.of("1.19.61.01");
     private static final String DIST_URL_TEMPLATE = "https://minecraft.azureedge.net/bin-[os]/bedrock-server-[version].zip";
 
     private static final Logger LOGGER = VanillaGeneratorPlugin.getInstance().getLogger();
@@ -54,7 +54,7 @@ public class BedrockDedicatedServer {
 
         final String distUrl = DIST_URL_TEMPLATE.
                 replace("[os]", SystemUtils.IS_OS_WINDOWS ? "win" : "linux").
-                replace("[version]", NEWEST.toString());
+                replace("[version]", LATEST_VERSION.toString());
 
         final String serverFile = distUrl.substring(distUrl.lastIndexOf('/') + 1);
 
@@ -107,7 +107,7 @@ public class BedrockDedicatedServer {
 
         final GameVersion versionOfServer = getVersionOfServer(tempServer);
 
-        if(versionOfServer.isOlderThan(NEWEST)) {
+        if(versionOfServer.isOlderThan(LATEST_VERSION)) {
             if(versionOfServer.equals(GameVersion.NULL_VERSION))
                 LOGGER.info("Creating bedrock server for world " + world.getWorldName() + ". This may take a while...");
             else
@@ -244,7 +244,7 @@ public class BedrockDedicatedServer {
         final File versionFile = new File(tempServer, ".version");
 
         try(final BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(versionFile))) {
-            bufferedWriter.write(BedrockDedicatedServer.NEWEST.toString());
+            bufferedWriter.write(BedrockDedicatedServer.LATEST_VERSION.toString());
         } catch(IOException e) {
             LOGGER.error("Could not update the server version file!", e);
         }
